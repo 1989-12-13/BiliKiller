@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "BiliKiller",
+  "version": "1.0.0",
+  "description": "哔哩哔哩防沉迷助手：移除推荐内容只保留搜索，记录观看时长并温和提醒，提供历史报表。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "BiliKiller",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["*://*.bilibili.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.bilibili.com/*"],
+      "js": [
+        "src/shared/messages.js",
+        "src/content/selectors.js",
+        "src/content/cleaner.js",
+        "src/content/tracker.js",
+        "src/content/reminder.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "options_page": "src/options/options.html"
+}

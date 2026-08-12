@@ -1,0 +1,15 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": false,
+    "launchOptions": {
+      "headless": false,
+      "args": [
+        "--enable-extensions",
+        "--disable-extensions-except=d:\\Code\\BiliKiller",
+        "--load-extension=d:\\Code\\BiliKiller"
+      ]
+    }
+  },
+  "outputMode": "file"
+}

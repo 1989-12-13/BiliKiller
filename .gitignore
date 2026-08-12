@@ -1,0 +1,14 @@
+# Node / 依赖
+node_modules/
+
+# 验证产物（playwright-cli 输出）
+.playwright-cli/
+
+# 临时浏览器 profile / 验证截图
+.playwright/*-profile/
+bk-*.png
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log

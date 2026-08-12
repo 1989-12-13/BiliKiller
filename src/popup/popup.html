@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>BiliKiller</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <header class="brand">
+      <div class="brand-left">
+        <div class="logo">B</div>
+        <div class="brand-text">
+          <h1>BiliKiller</h1>
+          <p>哔哩哔哩防沉迷助手</p>
+        </div>
+      </div>
+      <label class="switch" title="功能总开关">
+        <input type="checkbox" id="toggle-enabled">
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <section class="today-card">
+      <p class="today-label">今日观看时长</p>
+      <p class="today-value" id="today-duration">--</p>
+      <p class="today-sub">
+        <span id="today-visits">访问 0 次</span>
+        <span class="sep">·</span>
+        <span id="next-reminder">--</span>
+      </p>
+    </section>
+
+    <section class="chart-card">
+      <div class="chart-head">
+        <h2>近 7 天</h2>
+        <span class="chart-unit">分钟</span>
+      </div>
+      <div class="chart" id="chart-7d"></div>
+    </section>
+
+    <section class="toggles" id="toggles"></section>
+
+    <footer class="footer">
+      <button id="open-options" class="link-btn" type="button">更多设置与 30 天报表 →</button>
+    </footer>
+  </div>
+
+  <script src="../shared/messages.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

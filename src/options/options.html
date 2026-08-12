@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>BiliKiller · 设置</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo">B</div>
+        <span class="brand-name">BiliKiller</span>
+      </div>
+      <nav class="nav">
+        <a href="#rules">净化规则</a>
+        <a href="#reminder">提醒设置</a>
+        <a href="#report">使用报表</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <section id="rules" class="section">
+      <h2 class="section-title">净化规则</h2>
+      <p class="section-sub">分项控制各页面推荐内容的隐藏，关闭开关后对应页面恢复原样，即时生效。</p>
+      <div class="rule-grid" id="rule-cards"></div>
+    </section>
+
+    <section id="reminder" class="section">
+      <h2 class="section-title">提醒设置</h2>
+      <div class="card">
+        <div class="row">
+          <div class="row-text">
+            <h3>温和提醒</h3>
+            <p>观看时长达到间隔的整数倍时，在页面右下角弹出可关闭的提醒浮层，绝不强制拦截</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="reminder-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <div class="row-text">
+            <h3>提醒间隔</h3>
+            <p>每观看满 <strong id="interval-value">30</strong> 分钟提醒一次</p>
+          </div>
+          <div class="range-wrap">
+            <span class="range-bound">10</span>
+            <input type="range" id="interval-range" min="10" max="120" step="5">
+            <span class="range-bound">120</span>
+          </div>
+        </div>
+        <div class="preview" id="reminder-preview"></div>
+      </div>
+    </section>
+
+    <section id="report" class="section">
+      <h2 class="section-title">使用报表</h2>
+      <div class="summary">
+        <div class="stat-card">
+          <p class="stat-label">本周合计</p>
+          <p class="stat-value" id="week-total">--</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">近 30 天日均</p>
+          <p class="stat-value" id="avg-daily">--</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">近 30 天访问</p>
+          <p class="stat-value" id="total-visits">--</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="chart-head">
+          <h3>近 30 天观看时长</h3>
+          <span class="chart-unit">分钟</span>
+        </div>
+        <div class="chart30" id="chart-30d"></div>
+        <div class="axis" id="chart-axis"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../shared/messages.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

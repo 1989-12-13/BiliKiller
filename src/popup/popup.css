@@ -1,0 +1,121 @@
+:root {
+  --primary: #5B6CFF;
+  --primary-2: #7C8AFF;
+  --accent: #FB7299;
+  --bg: #F6F7FB;
+  --card: #FFFFFF;
+  --soft: #EEF1FF;
+  --text: #1F2430;
+  --text-2: #6B7280;
+  --border: #E8EAF3;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 360px;
+  background: var(--bg);
+  font-family: "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.popup { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ---------- 品牌区 ---------- */
+.brand { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; }
+.brand-left { display: flex; align-items: center; gap: 10px; }
+.logo {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff; font-weight: 700; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 16px rgba(91, 108, 255, .35);
+  position: relative; overflow: hidden;
+}
+.logo::after {
+  content: ''; position: absolute; left: 18%; right: 18%; top: 48%; height: 3px;
+  background: var(--accent); border-radius: 2px; transform: rotate(-38deg);
+}
+.brand-text h1 { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.brand-text p { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+
+/* ---------- 开关 ---------- */
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; inset: 0; background: #D6DAE8; border-radius: 999px;
+  cursor: pointer; transition: background .15s;
+}
+.slider::before {
+  content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; top: 3px; left: 3px;
+  box-shadow: 0 1px 3px rgba(31, 36, 48, .25);
+  transition: transform .15s;
+}
+.switch input:checked + .slider { background: linear-gradient(135deg, var(--primary), var(--primary-2)); }
+.switch input:checked + .slider::before { transform: translateX(18px); }
+
+.switch-sm { width: 34px; height: 19px; }
+.switch-sm .slider::before { width: 13px; height: 13px; }
+.switch-sm input:checked + .slider::before { transform: translateX(15px); }
+
+/* ---------- 今日时长卡片 ---------- */
+.today-card {
+  border-radius: 16px; padding: 18px 20px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  color: #fff; box-shadow: 0 10px 28px rgba(91, 108, 255, .35);
+}
+.today-label { font-size: 12px; opacity: .85; }
+.today-value { font-size: 28px; font-weight: 700; margin: 6px 0 8px; letter-spacing: .5px; }
+.today-sub { font-size: 11.5px; opacity: .85; display: flex; gap: 6px; align-items: center; }
+.today-sub .sep { opacity: .6; }
+
+/* ---------- 7 天迷你图 ---------- */
+.chart-card {
+  background: var(--card); border-radius: 16px; padding: 14px 16px;
+  border: 1px solid var(--border);
+}
+.chart-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.chart-head h2 { font-size: 13px; font-weight: 600; }
+.chart-unit { font-size: 11px; color: var(--text-2); }
+
+.chart { display: flex; align-items: flex-end; gap: 8px; height: 84px; }
+.chart .col {
+  flex: 1; height: 100%; display: flex; flex-direction: column;
+  justify-content: flex-end; align-items: center; gap: 6px;
+}
+.chart .bar {
+  width: 100%; border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(180deg, var(--primary-2), var(--primary));
+  transform-origin: bottom; animation: grow .6s ease;
+  transition: filter .15s;
+}
+.chart .col:hover .bar { filter: brightness(1.12); }
+.chart .col.today .bar { background: linear-gradient(180deg, var(--accent), #F0507E); }
+.chart .bar.empty { background: #E8EAF3; }
+.chart .day { font-size: 10.5px; color: var(--text-2); }
+.chart .col.today .day { color: var(--accent); font-weight: 700; }
+
+@keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* ---------- 快捷开关列表 ---------- */
+.toggles {
+  background: var(--card); border-radius: 16px; border: 1px solid var(--border);
+  padding: 4px 16px; display: flex; flex-direction: column;
+}
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--bg);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-name { font-size: 13px; font-weight: 500; }
+
+/* ---------- 底部 ---------- */
+.footer { text-align: center; padding: 2px 0 4px; }
+.link-btn {
+  border: none; background: transparent; color: var(--primary);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  padding: 6px 12px; border-radius: 8px; transition: background .15s;
+}
+.link-btn:hover { background: var(--soft); }
