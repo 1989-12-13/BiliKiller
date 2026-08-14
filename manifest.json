@@ -31,6 +31,11 @@
         "src/shared/messages.js",
         "src/content/selectors.js",
         "src/content/cleaner.js",
+        "src/content/bili-api.js",
+        "src/content/hot-placeholder.js",
+        "src/content/home-panel.js",
+        "src/content/video-stats.js",
+        "src/content/panels.js",
         "src/content/tracker.js",
         "src/content/reminder.js"
       ],

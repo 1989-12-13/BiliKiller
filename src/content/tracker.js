@@ -2,7 +2,7 @@
  * BiliKiller 时长统计（内容脚本端）
  *
  * 规则：
- * - 仅在页面可见（visibilityState === 'visible'）时按秒累计，后台标签页不计时长；
+ * - 仅在视频页（www.bilibili.com/video/）可见时按秒累计，后台标签页与首页/搜索/热门不计时；
  * - 每累计 15 秒心跳上报一次；页面隐藏 / 关闭时立即上报，避免数据丢失；
  * - 每次文档加载计一次访问（SPA 内跳转不重复计数）。
  */
@@ -13,11 +13,18 @@
   if (window.top !== window) return;
 
   const shared = globalThis.BiliKillerShared;
-  if (!shared) return;
+  const PAGES = globalThis.BK_PAGES;
+  if (!shared || !PAGES) return;
   const MSG = shared.MSG;
 
   const HEARTBEAT_SECONDS = 15;
   let pendingSeconds = 0;
+  let lastPageVideo = PAGES.video(location);
+
+  /** 是否在视频页（与 cleaner 同源的页面判定） */
+  function isVideoPage() {
+    return PAGES.video(location);
+  }
 
   function send(message) {
     try {
@@ -34,13 +41,17 @@
     if (pendingSeconds <= 0) return;
     const seconds = pendingSeconds;
     pendingSeconds = 0;
-    // 携带当前视频标签（cleaner 采集后写入 globalThis，多个 content script 共享同一环境）
-    const tags = Array.isArray(globalThis.__BK_CURRENT_TAGS) ? globalThis.__BK_CURRENT_TAGS : undefined;
-    send({ type: MSG.ADD_TIME, seconds: seconds, tags: tags });
+    send({ type: MSG.ADD_TIME, seconds: seconds });
   }
 
   window.setInterval(function () {
-    if (document.visibilityState === 'visible') {
+    const video = isVideoPage();
+    if (video !== lastPageVideo) {
+      // SPA 路由切换：离开视频页时立即上报已累计秒数，避免误计非视频时长
+      if (lastPageVideo) flush();
+      lastPageVideo = video;
+    }
+    if (document.visibilityState === 'visible' && video) {
       pendingSeconds += 1;
       if (pendingSeconds >= HEARTBEAT_SECONDS) flush();
     }

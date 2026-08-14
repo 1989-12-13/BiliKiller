@@ -19,16 +19,31 @@
 
   const CHECK_INTERVAL_MS = 15000;
   const SNOOZE_KEY = 'bk-snooze-until-sec';
+  const SHOWN_KEY = 'bk-shown-multiple'; // 会话级已提醒阈值，刷新页面后仍记住
 
   let settings = Object.assign({}, shared.DEFAULT_SETTINGS);
   let hostEl = null;
-  let shownMultiple = -1; // 已弹出过的阈值倍数，防止同一阈值重复弹出
 
   function loadSettings() {
-    chrome.storage.local.get(SETTINGS_KEY, function (data) {
-      if (chrome.runtime.lastError) return;
-      settings = Object.assign({}, shared.DEFAULT_SETTINGS, data[SETTINGS_KEY] || {});
+    shared.getSettings(function (merged) {
+      settings = merged;
     });
+  }
+
+  /** 读取会话级「已提醒过的阈值倍数」：默认 -1（未提醒过） */
+  function getShownMultiple() {
+    try {
+      const v = Number(sessionStorage.getItem(SHOWN_KEY) || -1);
+      return Number.isFinite(v) ? v : -1;
+    } catch (e) {
+      return -1;
+    }
+  }
+
+  function setShownMultiple(m) {
+    try {
+      sessionStorage.setItem(SHOWN_KEY, String(m));
+    } catch (e) { /* 隐私模式下可能不可写，忽略 */ }
   }
 
   function snoozeUntil() {
@@ -117,13 +132,13 @@
     if (!resp || !resp.ok || !resp.today) return;
 
     const seconds = resp.today.seconds || 0;
-    const intervalSec = Math.max(1, Number(settings.reminderIntervalMin) || 30) * 60;
+    const intervalSec = shared.reminderIntervalSec(settings.reminderIntervalMin);
     if (seconds < intervalSec) return; // 未达首个阈值
     if (seconds < snoozeUntil()) return; // 用户已延迟
 
     const multiple = Math.floor(seconds / intervalSec);
-    if (multiple === shownMultiple) return; // 该阈值已提醒过
-    shownMultiple = multiple;
+    if (multiple === getShownMultiple()) return; // 该阈值已提醒过
+    setShownMultiple(multiple);
     show(seconds, intervalSec);
   }
 

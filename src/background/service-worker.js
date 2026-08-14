@@ -46,22 +46,13 @@ async function getStats() {
   return stats && typeof stats.daily === 'object' && stats.daily ? stats : { daily: {} };
 }
 
-function addTime(seconds, tags) {
+function addTime(seconds) {
   return serialized(async function () {
     if (!Number.isFinite(seconds) || seconds <= 0) return;
     const stats = await getStats();
     const key = todayKey(0);
     const day = stats.daily[key] || { seconds: 0, visits: 0 };
     day.seconds += Math.round(seconds);
-    // 标签时长：同一上报携带多个标签时按标签数均分，保证标签总和 ≈ 总时长
-    const tagList = Array.isArray(tags)
-      ? tags.filter(function (t) { return typeof t === 'string' && t.length > 0; })
-      : [];
-    if (tagList.length) {
-      const per = Math.max(1, Math.round(seconds / tagList.length));
-      if (typeof day.tags !== 'object' || !day.tags) day.tags = {};
-      for (const t of tagList) day.tags[t] = (day.tags[t] || 0) + per;
-    }
     stats.daily[key] = day;
     await chrome.storage.local.set({ [STORAGE_KEYS.STATS]: stats });
   });
@@ -104,7 +95,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   const handle = async function () {
     switch (msg.type) {
       case MSG.ADD_TIME:
-        await addTime(Number(msg.seconds), msg.tags);
+        await addTime(Number(msg.seconds));
         return { ok: true };
 
       case MSG.ADD_VISIT:
@@ -119,22 +110,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
           date: key,
           today: stats.daily[key] || { seconds: 0, visits: 0 },
         };
-      }
-
-      case MSG.GET_TAGS: {
-        const days = Math.min(Math.max(parseInt(msg.days, 10) || 14, 1), 365);
-        const stats = await getStats();
-        const tags = {};
-        for (let i = days - 1; i >= 0; i--) {
-          const key = todayKey(i);
-          const day = stats.daily[key];
-          if (day && day.tags) {
-            for (const name in day.tags) {
-              tags[name] = (tags[name] || 0) + day.tags[name];
-            }
-          }
-        }
-        return { ok: true, tags: tags, days: days };
       }
 
       case MSG.GET_STATS: {

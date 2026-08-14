@@ -6,12 +6,12 @@
 
   const shared = globalThis.BiliKillerShared;
   const SETTINGS_KEY = shared.STORAGE_KEYS.SETTINGS;
-  const DEFAULT_SETTINGS = shared.DEFAULT_SETTINGS;
   const MSG = shared.MSG;
 
   const TOGGLE_ITEMS = [
     { key: 'hideHomeFeed', label: '首页推荐流' },
     { key: 'hideRelated', label: '视频页相关视频' },
+    { key: 'hideEndOverlay', label: '视频结尾连播推荐' },
     { key: 'hideHotRank', label: '热门 / 排行榜' },
     { key: 'hideHotSearch', label: '热搜榜' },
     { key: 'hideAds', label: '全站广告' },
@@ -22,13 +22,8 @@
 
   function $(sel) { return document.querySelector(sel); }
 
-  async function getSettings() {
-    const data = await chrome.storage.local.get(SETTINGS_KEY);
-    return Object.assign({}, DEFAULT_SETTINGS, data[SETTINGS_KEY] || {});
-  }
-
   async function saveSetting(key, value) {
-    const settings = await getSettings();
+    const settings = await shared.getSettings();
     settings[key] = value;
     await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
   }
@@ -88,9 +83,9 @@
 
   async function render() {
     const results = await Promise.all([
-      getSettings(),
-      chrome.runtime.sendMessage({ type: MSG.GET_TODAY }),
-      chrome.runtime.sendMessage({ type: MSG.GET_STATS, days: 7 }),
+      shared.getSettings(), // 内部有 lastError 降级，永不 reject
+      chrome.runtime.sendMessage({ type: MSG.GET_TODAY }).catch(function () { return null; }),
+      chrome.runtime.sendMessage({ type: MSG.GET_STATS, days: 7 }).catch(function () { return null; }),
     ]);
     const settings = results[0];
     const todayResp = results[1];
@@ -100,16 +95,27 @@
     buildToggles(settings);
 
     const today = (todayResp && todayResp.today) || { seconds: 0, visits: 0 };
-    $('#today-duration').textContent = shared.formatDuration(today.seconds);
+    $('#today-duration').textContent = shared.formatDurationMinutes(today.seconds);
     $('#today-visits').textContent = '访问 ' + (today.visits || 0) + ' 次';
 
     if (!settings.enabled || !settings.reminderEnabled) {
       $('#next-reminder').textContent = '提醒已关闭';
     } else {
-      const intervalSec = Math.max(1, Number(settings.reminderIntervalMin) || 30) * 60;
-      const next = (Math.floor(today.seconds / intervalSec) + 1) * intervalSec;
-      const remainMin = Math.max(1, Math.ceil((next - today.seconds) / 60));
-      $('#next-reminder').textContent = '距下次提醒 ' + remainMin + ' 分钟';
+      $('#next-reminder').textContent =
+        '距下次提醒 ' + shared.nextReminderMinutes(today.seconds, settings.reminderIntervalMin) + ' 分钟';
+    }
+
+    const limitMin = Number(settings.dailyLimitMin) || 0;
+    const targetInfo = $('#target-info');
+    if (limitMin > 0 && today.seconds > 0) {
+      const limitSec = limitMin * 60;
+      const pct = Math.min(100, Math.round((today.seconds / limitSec) * 100));
+      targetInfo.style.display = '';
+      targetInfo.textContent = today.seconds > limitSec
+        ? '已超每日目标 ' + Math.round((today.seconds - limitSec) / 60) + ' 分钟'
+        : '每日目标 ' + limitMin + ' 分钟 · 已用 ' + pct + '%';
+    } else {
+      targetInfo.style.display = 'none';
     }
 
     if (statsResp && statsResp.ok) {

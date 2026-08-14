@@ -12,3 +12,6 @@ bk-*.png
 .DS_Store
 Thumbs.db
 *.log
+
+# CodeBuddy 规划产物（不入库）
+.codebuddy/

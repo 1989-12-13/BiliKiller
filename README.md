@@ -12,7 +12,7 @@
 | 视频页净化 | 隐藏右侧相关视频、底部推荐列表 |
 | 热门/排行榜净化 | 隐藏榜单内容，显示「请使用搜索」的温和占位卡片（内置搜索框） |
 | 搜索页净化 | 保留搜索结果，隐藏热搜榜等推荐位 |
-| 使用统计 | 仅累计页面可见时长（后台标签页不计时），按天持久化，自动清理 90 天前数据 |
+| 使用统计 | 仅累计视频播放页可见时长（首页/搜索/热门不计时，后台标签页不计时），按天持久化，自动清理 90 天前数据 |
 | 温和提醒 | 观看时长每达到设定阈值（默认 30 分钟，可配置 10–120 分钟）弹出非强制提醒，可「再看一会」或「休息一下」 |
 | Popup | 今日观看时长、访问次数、近 7 天迷你趋势图、各净化功能快捷开关 |
 | Options | 分项开关各隐藏规则、配置提醒间隔、查看近 30 天历史报表柱状图 |
@@ -22,7 +22,7 @@
 | 稍后再看 | 首页展示你主动加入 B 站「稍后再看」的视频（封面 / 标题 / UP 主 / 时长），未登录、为空或加载失败时显示温和引导，延续「仅主动观看」理念 |
 | 全站广告 | 屏蔽视频页右侧广告卡片与底部横幅、搜索页推广位等广告容器，与净化规则相互独立可单独开关 |
 | 视频页观看统计 | 播放页右侧栏（广告与相关推荐被净化后留白处）注入「观看统计」面板：今日已看 / 今日访问 / 距下次提醒 / 与昨日对比（多看了/少看了）/ 近 7 天日均与迷你趋势图，每 30 秒自动刷新 |
-| 内容标签统计 | 自动采集所看视频的标签（`.tag-link`），心跳上报时长时按标签均分累计（`stats.daily[].tags`），面板展示近 14 天「主要标签时长占比」扇形图（conic-gradient 环形图 + 图例色块/名称/分钟），Top 6 外合并为「其他」 |
+| 内容分区统计 | 视频面板「分区占比 · 近 14 天」扇形图（conic-gradient 环形图 + 图例色块/名称/分钟）：直接调用 B 站观看历史 API（`api.bilibili.com/x/web-interface/history/cursor`），按真实观看进度（progress）聚合各分区（tag_name）观看时长，Top 6 外合并为「其他」；未登录显示引导提示 |
 
 ## 安装
 
@@ -38,16 +38,23 @@ BiliKiller/
 ├── manifest.json                    # MV3 清单
 ├── icons/                           # 16/32/48/128 图标
 ├── src/
-│   ├── shared/messages.js           # 消息类型、storage key、默认设置（content 与 SW 共用）
+│   ├── shared/messages.js           # 消息类型、storage key、默认设置、通用工具（content 与 SW 共用）
 │   ├── background/service-worker.js # 时长聚合写盘、历史清理、消息路由
 │   ├── content/
 │   │   ├── selectors.js             # 全部隐藏规则的选择器配置（集中维护）
-│   │   ├── cleaner.js               # CSS 注入 + SPA 路由钩子 + 热门页占位卡片
-│   │   ├── tracker.js               # 可见时长累计、心跳上报、访问计数
+│   │   ├── cleaner.js               # 净化核心：CSS 注入 + SPA 路由钩子 + 就绪门闩 + 面板调度
+│   │   ├── bili-api.js              # B 站 API 封装：观看历史 / 稍后再看 / 登录昵称（含缓存）
+│   │   ├── hot-placeholder.js       # 热门 / 排行榜占位卡
+│   │   ├── home-panel.js            # 首页面板：搜索引导 + 今日状态卡 + 稍后再看
+│   │   ├── video-stats.js           # 视频页观看统计面板 + 分区占比环形图
+│   │   ├── panels.js                # 面板调度器：按页面与设置裁决各面板挂载 / 清理
+│   │   ├── tracker.js               # 仅视频页可见时长累计、心跳上报、访问计数
 │   │   └── reminder.js              # 温和提醒浮层（Shadow DOM）与延迟逻辑
 │   ├── popup/                       # 弹出页
 │   └── options/                     # 选项页
-└── tools/gen-icons.ps1              # 图标生成脚本
+└── tools/
+    ├── gen-icons.ps1               # 图标生成脚本
+    └── check-syntax.mjs            # 语法校验（遍历 src JS + 校验 manifest.json）
 ```
 
 ## 技术要点
@@ -69,11 +76,21 @@ B 站改版导致净化失效时，只需更新 `src/content/selectors.js`：
 
 ## 端到端验证
 
-仓库自带 playwright-cli 验证配置 `.playwright/e2e.config.json`（以持久化上下文加载本目录为未打包扩展）。修改选择器后可快速回归：
+仓库自带 playwright-cli 验证配置 `.playwright/e2e.config.json`（以持久化上下文加载本目录为未打包扩展）。配置中的 `<PROJECT_ROOT>` 占位符需先替换为本机扩展目录绝对路径（如 `d:\Code\BiliKiller`），再执行：
 
 ```powershell
 playwright-cli --config=.playwright/e2e.config.json open https://www.bilibili.com/
 ```
+
+修改 JS / manifest 后可先做本地语法校验（遍历 `src` 下全部 JS 并校验 `manifest.json`）：
+
+```powershell
+node tools/check-syntax.mjs
+```
+
+2026-08-12 首页问候语接入 B 站登录态 API（`api.bilibili.com/x/web-interface/nav`，缓存 10 分钟）：登录后显示「早上好，{昵称}」等真实用户名问候，未登录 / 接口失败保持通用时段问候；同时彻底清理「本地标签统计」死代码：删除 `panels.js` 的 `collectCurrentVideoTags` 与调用点、`tracker.js` 心跳携带 tags、`service-worker.js` 标签均分累计与 `GET_TAGS` 消息、`messages.js` 的 `GET_TAGS` 常量（该链路在扇形图改用 B 站观看历史 API 后已无任何 UI 消费方）。
+
+2026-08-12 「内容占比」扇形图改为直接调用 B 站观看历史 API（`api.bilibili.com/x/web-interface/history/cursor`，`type=archive` 分页翻取近 14 天记录），按真实观看进度（`progress` 秒）聚合各分区（`tag_name`）观看时长，替代原本地 DOM 采集标签的均分口径（更接近真实观看情况）；面板标题改为「分区占比 · 近 14 天」，未登录（code -101）显示「登录 B 站后…」引导、接口失败显示「分区数据 加载失败」；结果缓存 5 分钟 / 失败 1 分钟，避免面板 30s 轮询高频请求。
 
 2026-08-11 已通过真实 Chromium 验证：首页推荐流隐藏且搜索框保留、热门页显示搜索占位卡片、搜索页结果保留、视频页相关推荐隐藏、时长统计与提醒倒计时在 Popup 正确显示、Options 页规则卡片/间隔滑块/30 天报表正常渲染。
 

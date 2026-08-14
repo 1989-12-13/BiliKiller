@@ -60,6 +60,8 @@
       key: 'hideRelated',
       pages: ['video'],
       selectors: [
+        '.rcmd-tab', // 右侧相关推荐 Tab 容器（合集/剧集推荐，2026-08 实测：隐藏后右侧栏净高约 148px）
+        '.video-pod', // 合集/剧集视频卡片容器（rcmd-tab 内）
         '.recommend-list-v1', // 新版相关视频容器（2026 实测）
         '.rec-list', // 相关视频列表
         '.video-page-card-small', // 相关视频小卡片
@@ -70,6 +72,16 @@
         '.recommend-list',
         '.left-container-under-player .video-section-list',
         '.bili-layout__recommend',
+      ],
+    },
+    {
+      // 视频页：播放结束时的「连播 / 接下来播放」推荐面板
+      // 仅隐藏推荐内容，自动连播倒计时仍照常运行（纯 CSS，不改播放器行为）
+      key: 'hideEndOverlay',
+      pages: ['video'],
+      selectors: [
+        '.bpx-player-ending-related', // bpx 播放器结束面板中的「接下来播放 / 连播」推荐网格（Bilibili-Evolved 实测）
+        '.bilibili-player-ending-panel-box-videos', // 旧版播放器结束面板推荐视频容器（兜底）
       ],
     },
     {

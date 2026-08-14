@@ -1,9 +1,13 @@
-// 临时校验脚本：语法检查全部 JS + 校验 manifest.json
+// 校验脚本：语法检查 src 下全部 JS + 校验 manifest.json
+// 用法：
+//   node tools/check-syntax.mjs            # 默认以仓库根目录（本文件所在目录的上级）为根
+//   node tools/check-syntax.mjs <root>     # 指定项目根目录
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const root = resolve(process.argv[2]);
+const root = resolve(process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..'));
 const results = [];
 
 function walk(dir) {
@@ -34,4 +38,5 @@ for (const r of results) {
     console.log(r.err);
   }
 }
+console.log(failed ? 'SYNTAX FAILED' : 'SYNTAX OK (' + results.length + ' files)');
 process.exit(failed ? 1 : 0);

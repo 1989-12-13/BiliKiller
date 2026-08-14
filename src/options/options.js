@@ -20,6 +20,7 @@
   const RULE_CARDS = [
     { key: 'hideHomeFeed', icon: 'home', title: '首页推荐流', desc: '隐藏首页视频卡片瀑布流，保留顶部导航与搜索框' },
     { key: 'hideRelated', icon: 'play', title: '视频页相关视频', desc: '隐藏播放页右侧相关视频与底部推荐列表' },
+    { key: 'hideEndOverlay', icon: 'shield', title: '视频结尾连播推荐', desc: '隐藏播放结束时弹出的「接下来播放 / 连播」推荐，自动连播倒计时照常运行' },
     { key: 'hideHotRank', icon: 'flame', title: '热门 / 排行榜', desc: '隐藏榜单内容，替换为「请使用搜索」占位提示' },
     { key: 'hideHotSearch', icon: 'search', title: '热搜榜', desc: '隐藏搜索框下拉中的热搜面板，保留输入联想' },
     { key: 'hideAds', icon: 'shield', title: '全站广告', desc: '屏蔽视频页右侧广告卡片、底部横幅与搜索页推广位' },
@@ -30,8 +31,7 @@
   function $(sel) { return document.querySelector(sel); }
 
   async function loadSettings() {
-    const data = await chrome.storage.local.get(SETTINGS_KEY);
-    settings = Object.assign({}, DEFAULT_SETTINGS, data[SETTINGS_KEY] || {});
+    settings = await shared.getSettings();
   }
 
   async function persist() {
@@ -113,6 +113,25 @@
     });
   }
 
+  /* ---------- 每日观看目标 ---------- */
+
+  function initLimitSection() {
+    const range = $('#limit-range');
+    const value = $('#limit-value');
+
+    range.value = String(settings.dailyLimitMin);
+    value.textContent = String(settings.dailyLimitMin);
+
+    range.addEventListener('input', function () {
+      value.textContent = range.value;
+      settings.dailyLimitMin = Number(range.value);
+    });
+    range.addEventListener('change', async function () {
+      settings.dailyLimitMin = Number(range.value);
+      await persist();
+    });
+  }
+
   /* ---------- 使用报表 ---------- */
 
   function renderChart30(series) {
@@ -145,7 +164,12 @@
   }
 
   async function renderReport() {
-    const resp = await chrome.runtime.sendMessage({ type: MSG.GET_STATS, days: 30 });
+    let resp = null;
+    try {
+      resp = await chrome.runtime.sendMessage({ type: MSG.GET_STATS, days: 30 });
+    } catch (e) {
+      resp = null; // 后台暂不可用，保持静态占位
+    }
     if (!resp || !resp.ok) return;
     const series = resp.series;
 
@@ -166,6 +190,7 @@
     await loadSettings();
     buildRuleCards();
     initReminderSection();
+    initLimitSection();
     renderReport();
   });
 })();
