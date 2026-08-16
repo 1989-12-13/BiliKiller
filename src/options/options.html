@@ -16,6 +16,7 @@
         <a href="#rules">净化规则</a>
         <a href="#reminder">提醒与目标</a>
         <a href="#report">使用报表</a>
+        <a href="#data">数据管理</a>
       </nav>
     </div>
   </header>
@@ -58,14 +59,63 @@
       <div class="card">
         <div class="row">
           <div class="row-text">
-            <h3>每日观看目标</h3>
-            <p>每日累计观看满 <strong id="limit-value">60</strong> 分钟记为达成当日目标，视频页统计面板会显示达成进度、剩余时长与连续达标天数</p>
+            <h3>专注模式（硬上限）</h3>
+            <p>可选强化层，默认关闭。开启后当日观看满 <strong id="hard-limit-value">90</strong> 分钟时，视频页会自动暂停播放并弹出休息门闩（可「去首页」或「再坚持 5 分钟」）</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="hard-limit-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <div class="row-text">
+            <h3>硬上限时长</h3>
+            <p>达到后暂停视频并提醒休息</p>
+          </div>
+          <div class="range-wrap">
+            <span class="range-bound">30</span>
+            <input type="range" id="hard-limit-range" min="30" max="240" step="15">
+            <span class="range-bound">240</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="row-text">
+            <h3>专注褪色（灰度）</h3>
+            <p>观看满 <strong id="grayscale-value">60</strong> 分钟后，整个 B 站页面转为灰度，作为非打断式的沉浸提醒（可选，默认关闭）</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="grayscale-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <div class="row-text">
+            <h3>褪色阈值</h3>
+            <p>达到后整站变灰</p>
           </div>
           <div class="range-wrap">
             <span class="range-bound">15</span>
-            <input type="range" id="limit-range" min="15" max="480" step="15">
-            <span class="range-bound">480</span>
+            <input type="range" id="grayscale-range" min="15" max="240" step="15">
+            <span class="range-bound">240</span>
           </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="row-text">
+            <h3>全局用量胶囊</h3>
+            <p>在 B 站任意页面左下角常驻今日用量小胶囊，点击展开详情与「临时恢复色彩」</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="usage-pill-enabled">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
     </section>
@@ -93,6 +143,24 @@
         </div>
         <div class="chart30" id="chart-30d"></div>
         <div class="axis" id="chart-axis"></div>
+      </div>
+    </section>
+
+    <section id="data" class="section">
+      <h2 class="section-title">数据管理</h2>
+      <p class="section-sub">所有数据仅存储在本机 chrome.storage.local，不上传服务器。可导出备份、导入恢复或清空统计。</p>
+      <div class="card">
+        <div class="row">
+          <div class="row-text">
+            <h3>导出 / 导入 / 清空</h3>
+            <p>导出为 JSON 备份文件；导入会覆盖当前设置与统计；清空仅清除观看统计，保留你的净化设置。</p>
+          </div>
+          <div class="data-actions">
+            <button class="btn btn-primary" id="export-btn" type="button">导出 JSON</button>
+            <button class="btn" id="import-btn" type="button">导入备份</button>
+            <button class="btn btn-danger" id="reset-btn" type="button">清空统计</button>
+          </div>
+        </div>
       </div>
     </section>
   </main>

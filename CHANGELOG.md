@@ -1,0 +1,48 @@
+# BiliKiller 开发日志
+
+## 本轮重构：全站统一「本次连续观看」计数
+
+「本次连续观看」改为全站统一计数 + 按「所有 B 站标签页关闭」归零：① 累计权收归 service worker 单点串行化——新增消息 `ADD_SESSION`（content 上报增量秒数）与 `GET_SESSION`（读回总数），`service-worker.js` 用同一串行队列累加 `bk-session-total`；内容脚本每秒「结算本段 → 上报整秒增量 → 读回 SW 权威总数」显示，**多标签页 / 多视频共用一个统一计数器**（实测两标签页读数 36 秒 vs 37 秒，几乎一致）；② 归零条件改为「最后一个 B 站标签页关闭」——每个 B 站页面持有一个 `bk-tab` 端口，SW 追踪存活端口，最后一个断开（含 SW 被回收后的断线重连）且 3 秒内无新端口时清空 `bk-session-total`（整页刷新因瞬间断开→重连而不会误清空），浏览器重启时 `onStartup` 再兜底清一次。此前「每个标签页各自读一次总值、本地累加、再整值写回」会造成丢失更新，正是「不同视频计时不同」的根因。
+
+## 本轮重构：计时模块重写为「真实播放」口径
+
+新增 `player.js` 播放器状态模块，把「播放 / 缓冲 / 暂停 / 结束 / 无视频」五种状态做成单一事实来源（由 `playing`/`waiting`/`pause`/`ended`/`emptied` 事件驱动，不靠轮询）。① `tracker.js` 由「每秒查一次 !paused」的粗糙整秒累加改为**事件驱动 + performance.now() 精确到毫秒**：只在 `state=playing` 时累计，暂停 / 缓冲 / 结束 / 隐藏 / 离开视频页立即停止，心跳对运行中段落做 checkpoint 以持续上报整秒、亚秒余量保留；② 视频面板「本次连续观看」重定义为**本次 B 站访问内「实际播放」的累计时长**：只要播放就累加（切标签页 / 回桌面不算中断），暂停 / 缓冲 / 离开视频页只暂停累加、**不清零**；③ `reminder.js` / `focus-mode.js` 的「暂停视频」统一走 `BK_PLAYER.pause()`，删除四处重复的主播放器选择器。
+
+## 本轮精简：彻底移除「每日目标」功能
+
+应要求删除整个 `dailyLimitMin`（每日观看目标）——移除 `messages.js` 默认设置、Options「每日观看目标」卡片与滑块、Popup「每日目标」提示行、用量胶囊收起态迷你进度条与展开态「目标进度」区块，以及 `video-stats.js` 的视频面板目标进度条。「每日目标」不再有任何 UI 消费方，防沉迷重心回归提醒 / 专注褪色 / 硬上限等真正有行为约束力的功能。
+
+## 本轮精简：视频面板聚焦核心数据
+
+移除视频页观看统计面板的「分区占比」扇形图、「今日是否在目标内」状态、「与昨日对比」三项（连同 `video-stats.js` 的 `fetchBiliTags` 调用与 `bili-api.js` 的观看历史 API 封装一并删除），并相应把 `fetchVideoStats` 简化为单次 `GET_TODAY` 查询（减少一次 `GET_STATS` 与一次 B 站 API 请求）。
+
+## 本轮创新：沉浸提醒三连
+
+① **专注褪色（灰度）**——新增 `grayscale.js`：观看满 `grayscaleAtMin` 分钟（默认 60）后，用 `pointer-events:none` 的透明覆盖层 + `backdrop-filter: grayscale(1)` 让整站褪色，不拦截点击、不改布局、不影响 fixed 定位，作为非打断式沉浸提醒；② **沉浸观看**——`selectors.js` 新增 `hideDanmaku` / `hideComments` 两个规则组（默认关），可一键隐藏视频页弹幕层与评论区，只留画面与声音；③ **全局用量胶囊**——新增 `usage-pill.js`：B 站任意页面左下角常驻今日用量胶囊（今日分钟数），点击展开「今日已看 / 距下次提醒 / 今日访问 / 褪色状态」并提供「临时恢复色彩 15 分钟」与「打开设置」；三者均接入 DEFAULT_SETTINGS、Options 分项开关（含灰度阈值滑块）与 Popup 快捷开关。
+
+## 本轮重构：真实观看口径 + 专注模式 + 数据管理
+
+① **真实观看计时**——`tracker.js` 由「页面可见即计时」改为「视频页可见且主播放器 video 正在播放才计时」，排除暂停 / 静音悬浮预览 / 后台标签页，使「休息一下」暂停视频后真正停止计时；② **跨标签页会话状态**——`messages.js` 新增 `sessionGet/sessionSet`（基于 `chrome.storage.local`，不可用时降级内存），`reminder.js` 的「已提醒阈值 / 延迟时间」改存于此，多标签页共享、开新页不再重复打扰；③ **专注模式（硬上限）**——新增 `focus-mode.js` 与默认设置 `hardLimitEnabled=false` / `hardLimitMin=90`：开启后当日观看达限即在视频页暂停播放并弹出全屏休息门闩（「去首页休息」/「再坚持 5 分钟」），Options 新增开关与滑块、Popup 新增快捷开关；④ **数据管理**——Options 新增「导出 JSON / 导入备份 / 清空统计」三按钮，导出/导入直接操作 `chrome.storage.local` 并同步图标徽章；⑤ **口径修正**——视频面板「分区占比」由「今日」改为「近 14 天」并同步 `fetchBiliTags(14)`，修正 README 与代码长期不一致；⑥ 提醒标题「已连续观看」改为「今日已观看」，措辞与实际口径一致。
+
+## 本轮优化：提醒体验与可见性增强
+
+① 提醒浮层颜色改为 CSS 变量并新增 `:host-context(html.dark)` 深色覆盖，与首页面板 / 视频统计 / 热门占位（同为 CSS 变量 + `html.dark`）统一，B 站深色模式下不再出现刺眼白块；② 提醒按钮语义区分——「再看一会」仅推迟到下一阈值、「休息一下」先 `video.pause()` 暂停页面视频再推迟、「今天不再提醒」推迟到本地当天结束（`startOfDay(-1)` 计算当日剩余秒）；③ 提醒文案按提醒次数（阈值倍数）从 4 组本地文案轮换，减少重复打扰感；④ `service-worker.js` 新增图标徽章：`addTime` 写盘后按当日分钟数 `chrome.action.setBadgeText`（`>99` 显示 `99+`），`onInstalled`/`onStartup`/每日归档 alarm 时从存储刷新徽章，无需打开 Popup 即可瞥见用量。
+
+## 2026-08-12
+
+- 首页问候语接入 B 站登录态 API（`api.bilibili.com/x/web-interface/nav`，缓存 10 分钟）：登录后显示「早上好，{昵称}」等真实用户名问候，未登录 / 接口失败保持通用时段问候；同时彻底清理「本地标签统计」死代码：删除 `panels.js` 的 `collectCurrentVideoTags` 与调用点、`tracker.js` 心跳携带 tags、`service-worker.js` 标签均分累计与 `GET_TAGS` 消息、`messages.js` 的 `GET_TAGS` 常量（该链路在扇形图改用 B 站观看历史 API 后已无任何 UI 消费方）。
+- 「内容占比」扇形图改为直接调用 B 站观看历史 API（`api.bilibili.com/x/web-interface/history/cursor`，`type=archive` 分页翻取近 14 天记录），按真实观看进度（`progress` 秒）聚合各分区（`tag_name`）观看时长，替代原本地 DOM 采集标签的均分口径（更接近真实观看情况）；面板标题改为「分区占比 · 近 14 天」，未登录（code -101）显示「登录 B 站后…」引导、接口失败显示「分区数据 加载失败」；结果缓存 5 分钟 / 失败 1 分钟，避免面板 30s 轮询高频请求。
+- 根治「视频页顶栏偶尔消失」（根因经系统性对照实验确认：B 站视频页 Vue 持续更新时遍历右侧栏相关容器 children，扩展若向 `.right-container` / `.right-container-inner` / `.app-v1` 等任意位置插入面板元素，都会破坏其内部遍历（`nextSibling` 为 undefined 崩溃 → bili-header 顶栏挂载失败），且与注入时机无关——纯净浏览器在 DOMContentLoaded / header 出现后注入同样崩溃）：视频统计面板最终改为**挂在 `document.body` 末尾（非 Vue 管理容器）+ `position: fixed` 视口定位到 sticky 右侧栏（`.right-container-inner`）下方**。fixed 与 sticky 同在视口坐标系，滚动时相对关系恒定、无需任何定时器/scroll 监听（消除粘滞感）；仅右侧栏尺寸变化时由 `ResizeObserver` 重算一次（消除遮挡/显示不全）。实测：视频页连续 5 次刷新 header 100% 存在 + 面板 100% 挂载、console 0 errors、面板紧贴 sticky 底部（gap 恒 16、宽 350 对齐）、滚动/懒加载后位置正确不遮挡、数据/标签图/深色模式正常；首页回归（顶栏 / 面板 / 状态卡 / 稍后再看 / 横幅 top 0）全部正常。
+- 修复「首页稍后再看不显示」（根因：自愈式挂载重构时，`loadWatchLater()` 仍留在 `placeHomePanel(el)` 之前调用，此时 `#bk-watch-later` 容器尚未插入 DOM，`getElementById` 返回 null 导致函数直接 return、fetch 从未发出；`startStatsTimer` 因有 30s 轮询兜底未受影响）：调整挂载顺序为先 `placeHomePanel(el)` 再初始化，并用 `data-bk-inited` 标记保证只初始化一次。实测：未登录首页稍后再看恢复「登录 B 站后…」引导，状态卡、顶栏、刷新稳定性全部正常。
+- 新增「内容标签统计」：视频页 cleaner 采集 `.tag-link` 标签写入 `globalThis.__BK_CURRENT_TAGS`（多个 content script 共享同一 isolated world），tracker 心跳上报 `ADD_TIME` 携带 `tags`，SW `addTime` 按标签数均分累计到 `stats.daily[].tags`，新增 `GET_TAGS` 消息返回近 N 天标签聚合；视频统计面板新增「内容占比 · 近 14 天」区块（conic-gradient 环形扇形图 + 图例）。实测：真实视频页采集 4 个标签，等待心跳后 `GET_TAGS` 返回各标签累计秒数；注入差异化数据后扇形图百分比精确；深色模式环形中心挖空与面板同色 `#1E2029`；离开视频页清空标签，首页回归正常。
+
+## 2026-08-11
+
+- 通过真实 Chromium 验证：首页推荐流隐藏且搜索框保留、热门页显示搜索占位卡片、搜索页结果保留、视频页相关推荐隐藏、时长统计与提醒倒计时在 Popup 正确显示、Options 页规则卡片/间隔滑块/30 天报表正常渲染。
+- 首页面板三项增强（今日状态卡 / 深色模式 / 问候与格言）已通过持久化上下文实测断言：问候「晚上好」按时段正确、每日一句本地轮换、状态卡与 popup 公式一致、`<html class="dark">` 注入后面板全量切换；亮色下卡片 `#FFFFFF`、文字 `#1F2430`、输入框白底 `#E5E7F0` 边框；热门页占位卡片与首页面板互斥；视频页相关推荐隐藏且无占位残留；搜索页结果 50 条保留、热搜组件未渲染。
+- 首页面板重构为「搜索栏（左）+ 状态卡（右）」双栏布局，状态卡竖排三张独立卡片，移动端（≤900px）自动降级为居中单列堆叠；同时将原 8 张分区卡片替换为「稍后再看」视频区块（真实 API `api.bilibili.com/x/v2/history/toview`）：未登录显示「登录 B 站后…」引导（实测返回 code -101）、空列表显示空状态、加载失败显示错误提示；通过注入 mock 数据实测渲染 3 张视频卡片，深色模式下适配正常。
+- 新增「全站广告」屏蔽（实测视频页右侧存在独立广告容器：`.ad-report-inner` 内「豆包」广告卡片 350x97、`.ad-floor-exp`/`.right-bottom-banner` 底部「领头像框」横幅 350x175，均不在相关视频隐藏规则覆盖范围内）：`hideAds` 规则组与默认设置、Options 规则卡片、Popup 快捷开关同步新增；实测开启后视频页全部广告容器 `display:none`，关闭后恢复 `block`（开关联动即时生效），顶部导航与搜索结果（50 条）均未被误伤。
+- 使用 Edge（`playwright-cli open --browser=msedge`）实测通过：Edge 151 下扩展 ID 与 Chrome 一致，首页面板、状态卡、视频页统计面板、广告屏蔽、深色模式、热门页占位与面板互斥均正常。
+- 修复「视频页顶栏消失」问题（根因：B 站视频页顶栏由异步模块 `bili-header.umd.js` 在 DOMContentLoaded 之后才挂载，内容脚本若在其挂载过程中往 DOM 注入面板元素，会改变 B 站 Vue 初始化依赖的 DOM 结构，导致 `video.js` 报错、header 模块报 `already mounted` / `nextSibling null`，顶栏组件挂载崩溃且不会自愈）：引入 `onPageReady` 门闩，所有面板 DOM 注入统一延迟到页面就绪后再执行，CSS 注入仍在 `document_start` 立即执行防推荐流闪现。实测：视频页顶栏恢复、统计面板挂载、相关推荐隐藏、console 0 errors，连续多次刷新稳定。
+- 修复「刷新后布局漂移」问题（根因：内容脚本在 B 站 SPA 异步渲染完成前注入，锚点未出现时兜底插到 `body` 首位/末尾，且「已挂载即返回」的守卫导致位置错误后永不自愈）：首页面板与视频统计面板均改为**自愈式挂载**——面板创建后由 `placeHomePanel` / `placeVideoStats` 在每次路由刷新时校验位置并 move 校正（不重建 DOM）；首页锚点缺失时面板紧跟顶栏放置，视频锚点缺失时面板临时隐藏待命。实测：手动把两面板错位到 `body` 末尾后触发路由刷新均自动归位。
+- 新增视频页「观看统计」面板：复用 `GET_TODAY` / `GET_STATS(days=7)` 数据链路，追加到播放页右侧栏底部，含今日已看、今日访问、距下次提醒、与昨日对比、近 7 天日均、7 根迷你趋势柱；独立 30s 轮询 + `visibilitychange` 刷新，随 SPA 路由挂载/移除（与首页面板/热门占位互斥）；实测注入数据后各项显示正确，深色下适配正常。

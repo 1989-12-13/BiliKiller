@@ -131,6 +131,30 @@
         '.admark',
       ],
     },
+    {
+      // 沉浸观看：隐藏视频页弹幕层（与视频画面为 sibling，隐藏后不影响播放）
+      key: 'hideDanmaku',
+      pages: ['video'],
+      selectors: [
+        '.bpx-player-dm-wrap', // bpx 播放器弹幕容器（主）
+        '.bpx-player-dm',
+        '.bilibili-player-video-danmaku', // 旧版播放器弹幕层
+        '.bilibili-player-danmaku',
+        '#danmukuBox',
+      ],
+    },
+    {
+      // 沉浸观看：隐藏视频页评论区（情绪化 / 引战内容的注意力黑洞）
+      key: 'hideComments',
+      pages: ['video'],
+      selectors: [
+        '.comment-container', // 新版评论区外层容器
+        '#commentapp',
+        '.bili-comment',
+        '.reply-wrap',
+        '.comment-wrap',
+      ],
+    },
   ];
 
   globalThis.BK_PAGES = BK_PAGES;

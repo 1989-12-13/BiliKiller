@@ -55,6 +55,7 @@ function addTime(seconds) {
     day.seconds += Math.round(seconds);
     stats.daily[key] = day;
     await chrome.storage.local.set({ [STORAGE_KEYS.STATS]: stats });
+    await setBadgeFromDay(day.seconds);
   });
 }
 
@@ -66,6 +67,29 @@ function addVisit() {
     day.visits += 1;
     stats.daily[key] = day;
     await chrome.storage.local.set({ [STORAGE_KEYS.STATS]: stats });
+  });
+}
+
+/* ---------------- 「本次连续观看」统一累计：SW 单点串行化，多标签页只上报增量 ---------------- */
+
+const SESSION_KEY = 'bk-session-total'; // 累计秒数（chrome.storage.local）
+
+function addSession(seconds) {
+  return serialized(async function () {
+    const n = Math.round(Number(seconds));
+    if (!Number.isFinite(n) || n <= 0) return;
+    const data = await chrome.storage.local.get(SESSION_KEY);
+    const cur = Number(data && data[SESSION_KEY]);
+    const base = Number.isFinite(cur) && cur > 0 ? cur : 0;
+    await chrome.storage.local.set({ [SESSION_KEY]: base + n });
+  });
+}
+
+function getSessionTotal() {
+  return serialized(async function () {
+    const data = await chrome.storage.local.get(SESSION_KEY);
+    const cur = Number(data && data[SESSION_KEY]);
+    return Number.isFinite(cur) && cur > 0 ? cur : 0;
   });
 }
 
@@ -87,6 +111,29 @@ function pruneOldStats() {
   });
 }
 
+/* ---------------- 扩展图标徽章：实时显示今日观看分钟数 ---------------- */
+
+/** 用当日累计秒数更新图标徽章（>99 分钟显示 99+，0 分钟清空） */
+async function setBadgeFromDay(seconds) {
+  try {
+    const minutes = Math.floor((Number(seconds) || 0) / 60);
+    const text = minutes <= 0 ? '' : (minutes > 99 ? '99+' : String(minutes));
+    await chrome.action.setBadgeText({ text: text });
+    await chrome.action.setBadgeBackgroundColor({ color: '#5B6CFF' });
+  } catch (e) {
+    /* action 不可用（如部分环境）时静默忽略，不影响统计主流程 */
+  }
+}
+
+/** 从存储读取当日数据并刷新徽章（SW 启动 / 安装 / 跨天时调用） */
+async function updateBadgeFromStorage() {
+  try {
+    const stats = await getStats();
+    const day = stats.daily[todayKey(0)] || { seconds: 0, visits: 0 };
+    await setBadgeFromDay(day.seconds);
+  } catch (e) { /* 忽略 */ }
+}
+
 /* ---------------- 消息路由 ---------------- */
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
@@ -101,6 +148,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       case MSG.ADD_VISIT:
         await addVisit();
         return { ok: true };
+
+      case MSG.ADD_SESSION:
+        await addSession(Number(msg.seconds));
+        return { ok: true };
+
+      case MSG.GET_SESSION:
+        return { ok: true, sessionSec: await getSessionTotal() };
 
       case MSG.GET_TODAY: {
         const stats = await getStats();
@@ -143,17 +197,53 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   return true; // 异步响应
 });
 
+/* ---------------- 标签页存活追踪：最后一个 B 站标签页关闭时清空「本次连续观看」累计 ---------------- */
+
+const liveTabPorts = new Set();
+let pendingClearTimer = null;
+
+chrome.runtime.onConnect.addListener(function (port) {
+  if (port.name !== 'bk-tab') return;
+  liveTabPorts.add(port);
+  if (pendingClearTimer) {
+    clearTimeout(pendingClearTimer);
+    pendingClearTimer = null;
+  }
+  port.onDisconnect.addListener(function () {
+    liveTabPorts.delete(port);
+    if (liveTabPorts.size === 0) {
+      // 整页刷新会造成瞬间 disconnect→connect，延迟 3s 再清空以规避抖动；
+      // 只有「最后一个 B 站标签页真正关闭/离开」时才会真正清空。
+      pendingClearTimer = setTimeout(function () {
+        pendingClearTimer = null;
+        if (liveTabPorts.size === 0) {
+          chrome.storage.local.remove('bk-session-total').catch(function () {});
+        }
+      }, 3000);
+    }
+  });
+});
+
 /* ---------------- 生命周期 ---------------- */
 
 chrome.runtime.onInstalled.addListener(function () {
   // 合并默认设置，确保新增字段有默认值
   saveSettings({}).catch(function () {});
   pruneOldStats().catch(function () {});
+  updateBadgeFromStorage().catch(function () {});
+});
+
+chrome.runtime.onStartup.addListener(function () {
+  updateBadgeFromStorage().catch(function () {});
+  // 浏览器重启兜底：正常关闭会触发各标签页端口断开并清空，这里再兜底清一次，避免上次累计残留
+  chrome.storage.local.remove('bk-session-total').catch(function () {});
 });
 
 chrome.alarms.create(ALARMS.DAILY_ROLLOVER, { periodInMinutes: 24 * 60 });
 chrome.alarms.onAlarm.addListener(function (alarm) {
   if (alarm.name === ALARMS.DAILY_ROLLOVER) {
-    pruneOldStats().catch(function () {});
+    pruneOldStats()
+      .then(updateBadgeFromStorage)
+      .catch(function () {});
   }
 });

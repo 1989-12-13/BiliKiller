@@ -15,7 +15,12 @@
     { key: 'hideHotRank', label: '热门 / 排行榜' },
     { key: 'hideHotSearch', label: '热搜榜' },
     { key: 'hideAds', label: '全站广告' },
+    { key: 'hideDanmaku', label: '弹幕（沉浸观看）' },
+    { key: 'hideComments', label: '评论区（沉浸观看）' },
     { key: 'reminderEnabled', label: '温和提醒' },
+    { key: 'hardLimitEnabled', label: '专注模式（硬上限）' },
+    { key: 'grayscaleEnabled', label: '专注褪色（灰度）' },
+    { key: 'usagePillEnabled', label: '用量胶囊' },
   ];
 
   const WEEKDAYS = '日一二三四五六';
@@ -103,19 +108,6 @@
     } else {
       $('#next-reminder').textContent =
         '距下次提醒 ' + shared.nextReminderMinutes(today.seconds, settings.reminderIntervalMin) + ' 分钟';
-    }
-
-    const limitMin = Number(settings.dailyLimitMin) || 0;
-    const targetInfo = $('#target-info');
-    if (limitMin > 0 && today.seconds > 0) {
-      const limitSec = limitMin * 60;
-      const pct = Math.min(100, Math.round((today.seconds / limitSec) * 100));
-      targetInfo.style.display = '';
-      targetInfo.textContent = today.seconds > limitSec
-        ? '已超每日目标 ' + Math.round((today.seconds - limitSec) / 60) + ' 分钟'
-        : '每日目标 ' + limitMin + ' 分钟 · 已用 ' + pct + '%';
-    } else {
-      targetInfo.style.display = 'none';
     }
 
     if (statsResp && statsResp.ok) {

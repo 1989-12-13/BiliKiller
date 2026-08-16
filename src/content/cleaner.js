@@ -12,7 +12,9 @@
  * - 面板挂载 / 统计刷新经 globalThis.BK_PANELS 调度（见 refresh / applySettings）。
  *
  * 依赖加载顺序（manifest content_scripts 数组顺序）：
- * messages.js → selectors.js → cleaner.js → panels.js → tracker.js → reminder.js
+ * messages.js → player.js → selectors.js → cleaner.js → bili-api.js
+ *   → hot-placeholder.js → home-panel.js → video-stats.js → panels.js
+ *   → tracker.js → reminder.js → focus-mode.js → grayscale.js → usage-pill.js
  */
 (function () {
   'use strict';
@@ -232,6 +234,25 @@
     ensurePanels();
     startObserver();
   });
+
+  /* ---------------- 标签页存活端口：SW 据此判断是否还有 B 站标签页 ---------------- */
+
+  function connectTabPort() {
+    let port;
+    try {
+      port = chrome.runtime.connect({ name: 'bk-tab' });
+    } catch (e) {
+      setTimeout(connectTabPort, 2000);
+      return;
+    }
+    port.onDisconnect.addListener(function () {
+      // 端口断开：可能是 SW 被回收，也可能是本页面卸载。
+      // 页面卸载时本内容脚本上下文会被销毁、定时器取消，不会真的重连；
+      // SW 被回收时则短暂延迟后重连，重新登记本标签页，避免 SW 误判「没有 B 站标签页」。
+      setTimeout(connectTabPort, 1000);
+    });
+  }
+  connectTabPort();
 
   /* ---------------- 对外接口（供 panels.js 读取实时状态） ---------------- */
 

@@ -19,9 +19,15 @@
     hideHotRank: true, // 热门 / 排行榜页占位提示
     hideHotSearch: true, // 搜索页热搜与推荐位
     hideAds: true, // 全站广告（视频页广告卡片 / 搜索推广位）
+    hideDanmaku: false, // 沉浸观看：隐藏视频页弹幕（默认关，避免影响普通用户）
+    hideComments: false, // 沉浸观看：隐藏视频页评论区（默认关）
     reminderEnabled: true, // 温和提醒总开关
     reminderIntervalMin: 30, // 提醒间隔（分钟）
-    dailyLimitMin: 60, // 每日观看目标（分钟），视频页面板展示达成进度
+    hardLimitEnabled: false, // 专注模式（可选硬上限）总开关，默认关闭以保留温和哲学
+    hardLimitMin: 90, // 专注模式硬上限（分钟）：达到后暂停视频并弹出休息门闩
+    grayscaleEnabled: false, // 专注褪色：达阈值后整站转为灰度（默认关）
+    grayscaleAtMin: 60, // 专注褪色触发阈值（分钟）
+    usagePillEnabled: true, // 全局用量胶囊：B 站任意页面左下角常驻今日用量
   });
 
   const MSG = Object.freeze({
@@ -33,6 +39,8 @@
     // （series[last]=今天、series[last-1]=昨天、series[0]=最早），改动需同步三处消费方。
     GET_SETTINGS: 'bk:get-settings',
     SAVE_SETTINGS: 'bk:save-settings',
+    ADD_SESSION: 'bk:add-session', // content -> SW：上报「本次连续观看」增量秒数 { seconds }
+    GET_SESSION: 'bk:get-session', // content -> SW：读取「本次连续观看」累计秒数
   });
 
   const ALARMS = Object.freeze({
@@ -142,6 +150,38 @@
       .replace(/'/g, '&#39;');
   }
 
+  /**
+   * 会话级共享状态（跨标签页）：用 chrome.storage.local（content script 与扩展页均可读写、
+   * 跨标签页 / 跨整页刷新共享），不可用时降级为内存 Map。
+   * 注意：chrome.storage.session 在 content script 中不可写，故不用它。
+   * 用于提醒「已提醒阈值」与「延迟到何时」等需要在多标签页间一致的瞬时状态
+   * （这些值多为绝对时间戳或按当日秒数取模的倍数，持久化到 local 也不会串天）。
+   */
+  const sessionState = (function () {
+    let mem = {};
+    let ok = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+    return {
+      async get(key) {
+        if (ok) {
+          try {
+            const o = await chrome.storage.local.get(key);
+            return o && o[key] !== undefined ? o[key] : undefined;
+          } catch (e) { ok = false; }
+        }
+        return mem[key];
+      },
+      async set(key, value) {
+        if (ok) {
+          try {
+            await chrome.storage.local.set({ [key]: value });
+            return;
+          } catch (e) { ok = false; }
+        }
+        mem[key] = value;
+      },
+    };
+  })();
+
   global.BiliKillerShared = Object.freeze({
     STORAGE_KEYS: STORAGE_KEYS,
     DEFAULT_SETTINGS: DEFAULT_SETTINGS,
@@ -156,5 +196,7 @@
     reminderIntervalSec: reminderIntervalSec,
     nextReminderMinutes: nextReminderMinutes,
     escapeHtml: escapeHtml,
+    sessionGet: function (key) { return sessionState.get(key); },
+    sessionSet: function (key, value) { return sessionState.set(key, value); },
   });
 })(typeof globalThis !== 'undefined' ? globalThis : self);

@@ -6,8 +6,9 @@
  * - 视频页观看统计面板 → BK_VIDEO_STATS
  *
  * 依赖加载顺序（manifest content_scripts 数组顺序）：
- * messages.js → selectors.js → cleaner.js → bili-api.js → hot-placeholder.js
- *   → home-panel.js → video-stats.js → panels.js → tracker.js → reminder.js
+ * messages.js → player.js → selectors.js → cleaner.js → bili-api.js
+ *   → hot-placeholder.js → home-panel.js → video-stats.js → panels.js
+ *   → tracker.js → reminder.js → focus-mode.js → grayscale.js → usage-pill.js
  * - 经 globalThis.BK_CLEANER 读取实时设置与页面类型（由 cleaner.js 维护并随 storage 变化同步）；
  * - 对外经 globalThis.BK_PANELS 暴露调度入口（ensurePanels / refreshStats），
  *   由 cleaner.js 的 SPA 路由与设置监听在运行时调用。

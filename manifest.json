@@ -29,6 +29,7 @@
       "matches": ["*://*.bilibili.com/*"],
       "js": [
         "src/shared/messages.js",
+        "src/content/player.js",
         "src/content/selectors.js",
         "src/content/cleaner.js",
         "src/content/bili-api.js",
@@ -37,7 +38,10 @@
         "src/content/video-stats.js",
         "src/content/panels.js",
         "src/content/tracker.js",
-        "src/content/reminder.js"
+        "src/content/reminder.js",
+        "src/content/focus-mode.js",
+        "src/content/grayscale.js",
+        "src/content/usage-pill.js"
       ],
       "run_at": "document_start",
       "all_frames": false

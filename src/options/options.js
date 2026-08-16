@@ -15,6 +15,8 @@
     flame: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3.5 5 5.2 5 9.2A5 5 0 0 1 7 12.2c0-1.9.9-3.4 2-5 .4 1.1 1.3 1.9 2.4 2.1C11.2 6.6 11.5 4.7 12 3z"/></svg>',
     search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
     shield: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/><path d="M9.5 12l1.8 1.8 3.2-3.6"/></svg>',
+    danmaku: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><path d="M6 9h7"/><path d="M6 12h9"/></svg>',
+    comment: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   };
 
   const RULE_CARDS = [
@@ -24,6 +26,8 @@
     { key: 'hideHotRank', icon: 'flame', title: '热门 / 排行榜', desc: '隐藏榜单内容，替换为「请使用搜索」占位提示' },
     { key: 'hideHotSearch', icon: 'search', title: '热搜榜', desc: '隐藏搜索框下拉中的热搜面板，保留输入联想' },
     { key: 'hideAds', icon: 'shield', title: '全站广告', desc: '屏蔽视频页右侧广告卡片、底部横幅与搜索页推广位' },
+    { key: 'hideDanmaku', icon: 'danmaku', title: '弹幕（沉浸观看）', desc: '隐藏视频页弹幕层，只留画面与声音，回归内容本身（不影响播放）' },
+    { key: 'hideComments', icon: 'comment', title: '评论区（沉浸观看）', desc: '隐藏视频页评论区，屏蔽情绪化与引战内容的注意力黑洞' },
   ];
 
   let settings = Object.assign({}, DEFAULT_SETTINGS);
@@ -113,21 +117,63 @@
     });
   }
 
-  /* ---------- 每日观看目标 ---------- */
+  /* ---------- 专注模式（硬上限） ---------- */
 
-  function initLimitSection() {
-    const range = $('#limit-range');
-    const value = $('#limit-value');
+  function initHardLimitSection() {
+    const toggle = $('#hard-limit-enabled');
+    const range = $('#hard-limit-range');
+    const value = $('#hard-limit-value');
 
-    range.value = String(settings.dailyLimitMin);
-    value.textContent = String(settings.dailyLimitMin);
+    toggle.checked = Boolean(settings.hardLimitEnabled);
+    range.value = String(settings.hardLimitMin);
+    value.textContent = String(settings.hardLimitMin);
 
+    toggle.addEventListener('change', async function () {
+      settings.hardLimitEnabled = toggle.checked;
+      await persist();
+    });
     range.addEventListener('input', function () {
       value.textContent = range.value;
-      settings.dailyLimitMin = Number(range.value);
+      settings.hardLimitMin = Number(range.value);
     });
     range.addEventListener('change', async function () {
-      settings.dailyLimitMin = Number(range.value);
+      settings.hardLimitMin = Number(range.value);
+      await persist();
+    });
+  }
+
+  /* ---------- 专注褪色（灰度） ---------- */
+
+  function initGrayscaleSection() {
+    const toggle = $('#grayscale-enabled');
+    const range = $('#grayscale-range');
+    const value = $('#grayscale-value');
+
+    toggle.checked = Boolean(settings.grayscaleEnabled);
+    range.value = String(settings.grayscaleAtMin);
+    value.textContent = String(settings.grayscaleAtMin);
+
+    toggle.addEventListener('change', async function () {
+      settings.grayscaleEnabled = toggle.checked;
+      await persist();
+    });
+    range.addEventListener('input', function () {
+      value.textContent = range.value;
+      settings.grayscaleAtMin = Number(range.value);
+    });
+    range.addEventListener('change', async function () {
+      settings.grayscaleAtMin = Number(range.value);
+      await persist();
+    });
+  }
+
+  /* ---------- 全局用量胶囊 ---------- */
+
+  function initUsagePillSection() {
+    const toggle = $('#usage-pill-enabled');
+    toggle.checked = Boolean(settings.usagePillEnabled);
+    toggle.addEventListener('change', async function () {
+      settings.usagePillEnabled = toggle.checked;
       await persist();
     });
   }
@@ -184,13 +230,72 @@
     renderChart30(series);
   }
 
+  /* ---------- 数据管理（导出 / 导入 / 清空统计） ---------- */
+
+  function initDataSection() {
+    $('#export-btn').addEventListener('click', async function () {
+      const data = await chrome.storage.local.get(null);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bilikiller-backup-' + shared.todayKey() + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    $('#import-btn').addEventListener('click', function () {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.onchange = async function () {
+        const f = input.files && input.files[0];
+        if (!f) return;
+        try {
+          const text = await f.text();
+          const parsed = JSON.parse(text);
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('bad');
+          await chrome.storage.local.set(parsed);
+          // 同步今日徽章，避免刷新前显示旧值
+          const key = shared.todayKey();
+          const day = parsed[shared.STORAGE_KEYS.STATS] && parsed[shared.STORAGE_KEYS.STATS].daily
+            ? parsed[shared.STORAGE_KEYS.STATS].daily[key] || { seconds: 0 }
+            : { seconds: 0 };
+          const minutes = Math.floor((day.seconds || 0) / 60);
+          try {
+            await chrome.action.setBadgeText({ text: minutes > 0 ? (minutes > 99 ? '99+' : String(minutes)) : '' });
+          } catch (e) { /* 忽略 */ }
+          alert('导入成功，页面将刷新。');
+          location.reload();
+        } catch (e) {
+          alert('导入失败：文件格式不正确。');
+        }
+      };
+      input.click();
+    });
+
+    $('#reset-btn').addEventListener('click', async function () {
+      if (!confirm('确定清空全部观看统计吗？净化设置会保留。')) return;
+      await chrome.storage.local.remove(shared.STORAGE_KEYS.STATS);
+      try {
+        await chrome.action.setBadgeText({ text: '' });
+      } catch (e) { /* 忽略 */ }
+      renderReport();
+    });
+  }
+
   /* ---------- 初始化 ---------- */
 
   document.addEventListener('DOMContentLoaded', async function () {
     await loadSettings();
     buildRuleCards();
     initReminderSection();
-    initLimitSection();
+    initHardLimitSection();
+    initGrayscaleSection();
+    initUsagePillSection();
+    initDataSection();
     renderReport();
   });
 })();

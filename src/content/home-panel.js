@@ -3,8 +3,9 @@
  * 含问候语（登录昵称 / 时段）、每日一句、深色模式适配。
  *
  * 依赖加载顺序（manifest content_scripts 数组顺序）：
- * messages.js → selectors.js → cleaner.js → bili-api.js → hot-placeholder.js
- *   → home-panel.js → video-stats.js → panels.js → tracker.js → reminder.js
+ * messages.js → player.js → selectors.js → cleaner.js → bili-api.js
+ *   → hot-placeholder.js → home-panel.js → video-stats.js → panels.js
+ *   → tracker.js → reminder.js → focus-mode.js → grayscale.js → usage-pill.js
  * - 经 globalThis.BK_CLEANER 读取实时设置（renderTodayStats）；
  * - 经 globalThis.BK_BILI_API 拉取登录昵称与稍后再看。
  */

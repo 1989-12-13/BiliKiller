@@ -15,3 +15,6 @@ Thumbs.db
 
 # CodeBuddy 规划产物（不入库）
 .codebuddy/
+
+# pw-daemon 运行时目录
+.pw-daemon/
