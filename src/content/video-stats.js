@@ -17,11 +17,13 @@
 
   const VIDEO_STATS_ID = 'bk-video-stats';
   const VIDEO_STATS_STYLE_ID = 'bk-video-stats-style';
+  const VIDEO_STATS_PAD_ID = 'bk-video-stats-pad';
+  const PANEL_GAP = 16;
 
   const STATS_REFRESH_MS = 30000;
 
   let videoStatsTimer = null;
-  let videoStatsAnchorObserver = null;
+  let lastPad = 0;
 
   function videoStatsNeeded() {
     const settings = cleaner.getSettings();
@@ -41,7 +43,8 @@
       '  --bk-vs-primary: #5B6CFF;',
       '  --bk-vs-border: rgba(91,108,255,.08);',
       '  --bk-vs-shadow: 0 8px 28px rgba(31,36,48,.05);',
-      '  box-sizing: border-box; margin: 0 0 16px; padding: 20px; border-radius: 18px; background: var(--bk-vs-bg); border: 1px solid var(--bk-vs-border); box-shadow: var(--bk-vs-shadow); font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;',
+      '  box-sizing: border-box; margin: 0; padding: 20px; border-radius: 18px; background: var(--bk-vs-bg); border: 1px solid var(--bk-vs-border); box-shadow: var(--bk-vs-shadow); font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;',
+      '  position: fixed; z-index: 10; top: 0; left: 0; will-change: transform;',
       '}',
       'html.dark #' + VIDEO_STATS_ID + ' {',
       '  --bk-vs-bg: #1E2029;',
@@ -66,6 +69,26 @@
     ];
     style.textContent = rules.join('\n');
     (document.head || document.documentElement).appendChild(style);
+  }
+
+  function setAnchorPadding(px) {
+    let padStyle = document.getElementById(VIDEO_STATS_PAD_ID);
+    if (!padStyle) {
+      padStyle = document.createElement('style');
+      padStyle.id = VIDEO_STATS_PAD_ID;
+      (document.head || document.documentElement).appendChild(padStyle);
+    }
+    const css = '.right-container-inner { padding-top: ' + px + 'px !important; }';
+    if (padStyle.textContent !== css) {
+      padStyle.textContent = css;
+      lastPad = px;
+    }
+  }
+
+  function removeAnchorPadding() {
+    const padStyle = document.getElementById(VIDEO_STATS_PAD_ID);
+    if (padStyle) padStyle.remove();
+    lastPad = 0;
   }
 
   function renderVideoStats(respToday) {
@@ -96,7 +119,6 @@
       remindEl.textContent = shared.nextReminderMinutes(seconds, settings.reminderIntervalMin) + ' 分钟';
     }
 
-    // 数据渲染完成后重估面板高度与视口
     placeVideoStats(box);
   }
 
@@ -115,15 +137,11 @@
   }
 
   /**
-   * 视频页统计面板：自愈式挂载。
-   * 关键设计：面板挂在 document.body 末尾，用 position:fixed 定位到右侧栏
-   * （.right-container-inner，sticky）的视口下方，绝不插入 B 站 Vue 管理的容器
-   * （.right-container / .right-container-inner / .app-v1 均实测会触发 video.js
-   * 崩溃：Vue 持续更新时遍历其 children，nextSibling 为 undefined）。
-   * - fixed 相对视口定位：sticky 右侧栏在视口中保持固定位置，面板同样保持，
-   *   二者相对关系恒定，滚动时自然跟随，无需 scroll 监听；
-   * - 仅右侧栏尺寸变化（懒加载相关推荐）时用 ResizeObserver 重算一次；
-   * - document.body 不是 B 站 Vue 管理的容器，插入面板绝对安全（实测 5/5 稳定）。
+   * 面板挂在 body 末尾（非 Vue 容器），position:fixed 定位。
+   * 核心：scroll 监听中始终设置 top = rci.getBoundingClientRect().top（视口坐标）。
+   * - rci 未 sticky 时：r.top 随滚动连续变化，面板 fixed 平滑跟随；
+   * - rci sticky 生效时：r.top 恒定，面板视口位置恒定。
+   * fixed 不随文档滚动，只由 style 决定位置，滚动同步无跳动。
    */
   function mountVideoStats() {
     if (!document.body) return;
@@ -145,82 +163,69 @@
         '  <div class="bk-vs-cell"><span>今日访问</span><b data-vs="visits">--</b></div>' +
         '</div>';
 
-      // 挂到 document.body 末尾（安全容器，非 Vue 管理），后续 fixed 定位到右侧栏下方
       document.body.appendChild(el);
 
       stopVideoStatsTimer();
       fetchVideoStats();
       videoStatsTimer = setInterval(fetchVideoStats, STATS_REFRESH_MS);
       document.addEventListener('visibilitychange', onVideoStatsVisibility);
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll, { passive: true });
     }
-    startSessionTimer();
     placeVideoStats(el);
+    startSessionTimer();
   }
 
-  /**
-   * 校正视频统计面板位置：fixed 定位到 sticky 右侧栏（.right-container-inner）
-   * 的视口下方。滚动时 sticky 元素相对视口位置不变，面板（fixed）亦不变，
-   * 二者相对关系恒定，无需 scroll 监听。
-   * 仅当右侧栏高度变化（懒加载相关推荐 / 展开收起）时由 ResizeObserver 重算。
-   */
-  function placeVideoStats(el) {
+  function onScroll() {
+    // 直接同步更新，不等 rAF：scroll 事件在帧渲染前触发，
+    // 同一帧内直接改 transform 会被本帧渲染，无额外一帧延迟。
+    const el = document.getElementById(VIDEO_STATS_ID);
+    if (el) updatePanelPosition(el);
+  }
+
+  /** 只更新面板视口位置（transform 合成层动画，不触发 reflow） */
+  function updatePanelPosition(el) {
     const anchor = document.querySelector('.right-container-inner') || document.querySelector('.right-container');
-    if (!anchor) {
+    if (!anchor || !anchor.parentElement) {
       el.style.display = 'none';
       return;
     }
     const r = anchor.getBoundingClientRect();
     const left = Math.round(r.left);
     const width = Math.round(r.width);
-    // 右侧栏容器底部有 B 站预留的 padding-bottom（相关推荐懒加载空间），
-    // 直接贴容器 bottom 会在面板上方留下大段空白。改为贴「最后一个可见内容」的 bottom。
-    let bottom = r.bottom;
-    for (let i = anchor.children.length - 1; i >= 0; i--) {
-      const c = anchor.children[i];
-      const cs = getComputedStyle(c);
-      if (cs.display !== 'none' && cs.visibility !== 'hidden' && c.getBoundingClientRect().height > 0) {
-        bottom = c.getBoundingClientRect().bottom;
-        break;
-      }
-    }
-    const top = Math.round(bottom + 6);
-    const curLeft = parseFloat(el.style.left);
-    const curTop = parseFloat(el.style.top);
-    // 仅视口位置/宽度变化超过阈值才更新，避免无意义重排
-    if (!isFinite(curLeft) || !isFinite(curTop) ||
-        Math.abs(curLeft - left) > 2 || Math.abs(curTop - top) > 2 ||
-        el.style.width !== width + 'px') {
-      el.style.position = 'fixed';
-      el.style.left = left + 'px';
-      el.style.top = top + 'px';
-      el.style.width = width + 'px';
-    }
-    el.style.display = 'block';
+    const top = Math.round(r.top);
 
-    // 右侧栏尺寸变化（懒加载）时重算，避免面板被遮挡
-    if (!videoStatsAnchorObserver && typeof ResizeObserver === 'function') {
-      videoStatsAnchorObserver = new ResizeObserver(function () {
-        const box = document.getElementById(VIDEO_STATS_ID);
-        if (box) placeVideoStats(box);
-      });
-      videoStatsAnchorObserver.observe(anchor);
-    }
+    el.style.width = width + 'px';
+    el.style.transform = 'translate3d(' + left + 'px,' + top + 'px,0)';
+    el.style.display = 'block';
   }
 
-  /* ---------------- 本次连续观看(统一累计) ----------------
-   「本次连续观看」= 本次 B 站访问内，视频「实际播放」的累计时长。
-   - 只要播放（state=playing）就累加，不论标签页是否可见（回到桌面 / 切标签页不算中断）；
-   - 暂停 / 缓冲 / 结束 / 无视频 / 离开视频页：都不清零，只是暂停累加；
-   - 总数由 SW 单点串行化累计（chrome.storage.local 的 bk-session-total，单位秒），
-     内容脚本每秒只上报「增量秒数」、读回总数显示——多标签页/多视频共用一个统一计数，不会各自漂移；
-   - 浏览器重启时由 SW 清空归零。
-   用 performance.now() 单调时钟分段累计，避免 Date.now() 受系统改时间影响。 */
+  /** 完整校正：定位 + 测量面板高度 + 更新 padding */
+  function placeVideoStats(el) {
+    updatePanelPosition(el);
+
+    const anchor = document.querySelector('.right-container-inner') || document.querySelector('.right-container');
+    if (!anchor || !anchor.parentElement) {
+      removeAnchorPadding();
+      return;
+    }
+
+    // 测量面板高度（仅数据渲染后调用，滚动时走 updatePanelPosition）
+    el.style.visibility = 'hidden';
+    const panelH = el.getBoundingClientRect().height;
+    el.style.visibility = '';
+
+    const pad = Math.round(panelH + PANEL_GAP);
+    if (pad !== lastPad) setAnchorPadding(pad);
+  }
+
+  /* ---------------- 本次连续观看(统一累计) ---------------- */
   const ADD_SESSION = shared.MSG.ADD_SESSION;
   const GET_SESSION = shared.MSG.GET_SESSION;
 
-  let segStart = 0;    // 当前播放段起点（performance.now()），0 = 未在播放
-  let pendingMs = 0;   // 尚未上报的毫秒（含亚秒余量）
-  let shownSec = -1;   // 当前显示的累计秒数（来自 SW 权威值；-1 = 尚未读到）
+  let segStart = 0;
+  let pendingMs = 0;
+  let shownSec = -1;
   let sessionTimer = null;
   let unsubPlayer = null;
 
@@ -250,7 +255,6 @@
     } catch (e) { /* 忽略 */ }
   }
 
-  /** 每秒：结算上一段 → 若在播则重新起段 → 上报整秒增量 → 读回 SW 权威总数并显示 */
   function tick() {
     const now = performance.now();
     if (segStart) {
@@ -258,7 +262,7 @@
       segStart = 0;
     }
     if (player.isPlaying()) {
-      segStart = now; // 若仍在播放，立即重新起段累计下一段
+      segStart = now;
     }
     const sec = Math.floor(pendingMs / 1000);
     if (sec > 0) {
@@ -304,10 +308,9 @@
   function removeVideoStats() {
     stopVideoStatsTimer();
     stopSessionTimer();
-    if (videoStatsAnchorObserver) {
-      videoStatsAnchorObserver.disconnect();
-      videoStatsAnchorObserver = null;
-    }
+    removeAnchorPadding();
+    window.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onScroll);
     const el = document.getElementById(VIDEO_STATS_ID);
     if (el) el.remove();
   }

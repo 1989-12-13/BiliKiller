@@ -22,6 +22,7 @@
   const RULE_CARDS = [
     { key: 'hideHomeFeed', icon: 'home', title: '首页推荐流', desc: '隐藏首页视频卡片瀑布流，保留顶部导航与搜索框' },
     { key: 'hideRelated', icon: 'play', title: '视频页相关视频', desc: '隐藏播放页右侧相关视频与底部推荐列表' },
+    { key: 'hideCollectionNav', icon: 'play', title: '合集/剧集导航', desc: '隐藏视频页右侧合集/剧集列表（开启后无法切换下一个视频）' },
     { key: 'hideEndOverlay', icon: 'shield', title: '视频结尾连播推荐', desc: '隐藏播放结束时弹出的「接下来播放 / 连播」推荐，自动连播倒计时照常运行' },
     { key: 'hideHotRank', icon: 'flame', title: '热门 / 排行榜', desc: '隐藏榜单内容，替换为「请使用搜索」占位提示' },
     { key: 'hideHotSearch', icon: 'search', title: '热搜榜', desc: '隐藏搜索框下拉中的热搜面板，保留输入联想' },

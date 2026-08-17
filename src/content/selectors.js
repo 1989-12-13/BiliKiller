@@ -56,12 +56,10 @@
       ],
     },
     {
-      // 视频页：右侧相关视频、底部推荐
+      // 视频页：右侧相关视频、底部推荐（不含合集/剧集导航，确保你能切下一个视频）
       key: 'hideRelated',
       pages: ['video'],
       selectors: [
-        '.rcmd-tab', // 右侧相关推荐 Tab 容器（合集/剧集推荐，2026-08 实测：隐藏后右侧栏净高约 148px）
-        '.video-pod', // 合集/剧集视频卡片容器（rcmd-tab 内）
         '.recommend-list-v1', // 新版相关视频容器（2026 实测）
         '.rec-list', // 相关视频列表
         '.video-page-card-small', // 相关视频小卡片
@@ -72,6 +70,16 @@
         '.recommend-list',
         '.left-container-under-player .video-section-list',
         '.bili-layout__recommend',
+      ],
+    },
+    {
+      // 视频页：合集/剧集导航面板（默认不隐藏，确保你能看到「下一个视频」入口）
+      // 如果你也想隐藏合集导航，可在 Options 页面或 Popup 中开启此开关
+      key: 'hideCollectionNav',
+      pages: ['video'],
+      selectors: [
+        '.rcmd-tab', // 右侧合集/剧集推荐 Tab 容器（含「下一个视频」入口）
+        '.video-pod', // 合集/剧集视频卡片容器（rcmd-tab 内）
       ],
     },
     {

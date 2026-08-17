@@ -11,6 +11,7 @@
   const TOGGLE_ITEMS = [
     { key: 'hideHomeFeed', label: '首页推荐流' },
     { key: 'hideRelated', label: '视频页相关视频' },
+    { key: 'hideCollectionNav', label: '合集导航（隐藏后无法切下一个视频）' },
     { key: 'hideEndOverlay', label: '视频结尾连播推荐' },
     { key: 'hideHotRank', label: '热门 / 排行榜' },
     { key: 'hideHotSearch', label: '热搜榜' },
