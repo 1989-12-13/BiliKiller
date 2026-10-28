@@ -1,4 +1,5 @@
-# 临时脚本：用 System.Drawing 生成 BiliKiller 扩展图标（16/32/48/128）
+﻿# 用 System.Drawing 生成 BiliKiller 扩展图标（16/32/48/128）
+# 配色取自哔哩哔哩品牌粉渐变（#FB7299 → #FF6699），白色字母 B 作为标识。
 Add-Type -AssemblyName System.Drawing
 
 function New-Icon {
@@ -10,15 +11,14 @@ function New-Icon {
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
 
-    $c1 = [System.Drawing.Color]::FromArgb(255, 91, 108, 255)      # #5B6CFF
-    $c2 = [System.Drawing.Color]::FromArgb(255, 124, 138, 255)     # #7C8AFF
-    $accent = [System.Drawing.Color]::FromArgb(255, 251, 114, 153) # #FB7299
+    $c1 = [System.Drawing.Color]::FromArgb(255, 251, 114, 153) # #FB7299
+    $c2 = [System.Drawing.Color]::FromArgb(255, 255, 102, 153) # #FF6699
 
     $rect = New-Object System.Drawing.RectangleF(0, 0, $Size, $Size)
-    $bg = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $c1, $c2, 135)
+    $bg = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $c1, $c2, 90)
 
-    # 圆角矩形背景
-    $r = [Math]::Max(2, [int]($Size * 0.22))
+    # 圆角矩形背景，圆角比例与界面中的 8px / 32px 标识块一致
+    $r = [Math]::Max(2, [int]($Size * 0.25))
     $d = $r * 2
     $shape = New-Object System.Drawing.Drawing2D.GraphicsPath
     $shape.AddArc(0, 0, $d, $d, 180, 90)
@@ -28,23 +28,15 @@ function New-Icon {
     $shape.CloseFigure()
     $g.FillPath($bg, $shape)
 
-    # 白色字母 B
-    $fontSize = [Math]::Max(6, [int]($Size * 0.48))
-    $font = New-Object System.Drawing.Font('Segoe UI', $fontSize, [System.Drawing.FontStyle]::Bold)
+    # 白色字母 B：字号按画布比例给足，保证 16px 下仍能辨认
+    $fontSize = [Math]::Max(7, [int]($Size * 0.68))
+    $font = New-Object System.Drawing.Font('Segoe UI', $fontSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
     $sf = New-Object System.Drawing.StringFormat
     $sf.Alignment = [System.Drawing.StringAlignment]::Center
     $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
     $g.DrawString('B', $font, [System.Drawing.Brushes]::White, $rect, $sf)
 
-    # 粉色斜杠（“戒掉 B 站”的隐喻）
-    $penW = [Math]::Max(1.5, $Size * 0.07)
-    $pen = New-Object System.Drawing.Pen($accent, $penW)
-    $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $g.DrawLine($pen, $Size * 0.22, $Size * 0.78, $Size * 0.78, $Size * 0.22)
-
     $font.Dispose()
-    $pen.Dispose()
     $bg.Dispose()
     $shape.Dispose()
     $g.Dispose()

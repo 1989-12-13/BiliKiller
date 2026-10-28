@@ -19,8 +19,8 @@
     { key: 'hideDanmaku', label: '弹幕（沉浸观看）' },
     { key: 'hideComments', label: '评论区（沉浸观看）' },
     { key: 'reminderEnabled', label: '温和提醒' },
-    { key: 'hardLimitEnabled', label: '专注模式（硬上限）' },
-    { key: 'grayscaleEnabled', label: '专注褪色（灰度）' },
+    { key: 'hardLimitEnabled', label: '专注模式' },
+    { key: 'grayscaleEnabled', label: '专注褪色' },
     { key: 'usagePillEnabled', label: '用量胶囊' },
   ];
 
@@ -28,10 +28,16 @@
 
   function $(sel) { return document.querySelector(sel); }
 
-  async function saveSetting(key, value) {
-    const settings = await shared.getSettings();
-    settings[key] = value;
-    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  // 串行化写入：连续快速点击多个开关时，后一次读取不会拿到前一次写入之前的旧值
+  let saveQueue = Promise.resolve();
+
+  function saveSetting(key, value) {
+    saveQueue = saveQueue.catch(function () {}).then(async function () {
+      const settings = await shared.getSettings();
+      settings[key] = value;
+      await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    });
+    return saveQueue;
   }
 
   function buildToggles(settings) {
@@ -62,6 +68,10 @@
     }
   }
 
+  /**
+   * 7 天迷你柱图：每列 = 数值标签 / 柱体轨道 / 星期标签 三段结构，
+   * 柱高相对 `.track` 计算（而非整列），数值标签固定高度不随柱高浮动。
+   */
   function renderChart(series) {
     const chart = $('#chart-7d');
     chart.textContent = '';
@@ -73,16 +83,23 @@
       const minutes = Math.round(d.seconds / 60);
       col.title = d.date.slice(5) + '：' + minutes + ' 分钟';
 
-      const bar = document.createElement('div');
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = minutes > 0 ? String(minutes) : '';
+
+      const track = document.createElement('span');
+      track.className = 'track';
+      const bar = document.createElement('span');
       bar.className = 'bar' + (d.seconds <= 0 ? ' empty' : '');
-      const h = d.seconds <= 0 ? 2 : Math.max(4, Math.round((d.seconds / max) * 100));
+      const h = d.seconds <= 0 ? 0 : Math.max(4, Math.round((d.seconds / max) * 100));
       bar.style.height = h + '%';
+      track.appendChild(bar);
 
       const day = document.createElement('span');
       day.className = 'day';
       day.textContent = WEEKDAYS[new Date(d.date + 'T00:00:00').getDay()];
 
-      col.append(bar, day);
+      col.append(val, track, day);
       chart.appendChild(col);
     });
   }

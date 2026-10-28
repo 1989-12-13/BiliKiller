@@ -3,7 +3,7 @@
  *
  * - 收起态：一枚小胶囊，显示「今日 X 分」，随眼可见；
  * - 展开态：今日已看 / 距下次提醒 / 今日访问 / 专注褪色状态与「临时恢复色彩」/ 打开设置；
- * - Shadow DOM 隔离 + :host-context(html.dark) 深色适配；
+ * - Shadow DOM 隔离 + :host-context(html.dark) / :host-context(html.bili_dark) 深色适配；
  * - 仅当 settings.enabled && settings.usagePillEnabled 时挂载，30 秒轮询 + visibilitychange 刷新。
  *
  * 依赖加载顺序：
@@ -52,36 +52,38 @@
     root = hostEl.attachShadow({ mode: 'open' });
     root.innerHTML =
       '<style>' +
-      ':host { all: initial; --bk-pill-bg:#FFFFFF; --bk-pill-text:#1F2430; --bk-pill-sub:#6B7280; --bk-pill-primary:#5B6CFF; --bk-pill-border:rgba(91,108,255,.14); --bk-pill-shadow:0 12px 32px rgba(31,36,48,.16); --bk-pill-soft:#F6F7FB; }' +
-      ':host-context(html.dark) { --bk-pill-bg:#1E2029; --bk-pill-text:#E8E9ED; --bk-pill-sub:#9AA1B4; --bk-pill-primary:#7C8AFF; --bk-pill-border:rgba(255,255,255,.12); --bk-pill-shadow:0 12px 32px rgba(0,0,0,.5); --bk-pill-soft:#17181F; }' +
+      ':host { all: initial; --bk-pill-card:#FFFFFF; --bk-pill-text:#18191C; --bk-pill-sub:#61666D; --bk-pill-faint:#9499A0; --bk-pill-pink:#FB7299; --bk-pill-pink-hover:#FC8BAB; --bk-pill-pink-soft:#FFF3F6; --bk-pill-line:#E3E5E7; --bk-pill-sub-bg:#F6F7F8; --bk-pill-sans:"PingFang SC","HarmonyOS_Regular","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif; --bk-pill-shadow:0 4px 12px rgba(0,0,0,.1); }' +
+      ':host-context(html.dark), :host-context(html.bili_dark) { --bk-pill-card:#202123; --bk-pill-text:#E7E9EB; --bk-pill-sub:#A2A7AE; --bk-pill-faint:#757A81; --bk-pill-pink:#D44E7D; --bk-pill-pink-hover:#DC6D94; --bk-pill-pink-soft:#2F1A22; --bk-pill-line:#2F3134; --bk-pill-sub-bg:#242628; --bk-pill-shadow:0 4px 12px rgba(0,0,0,.5); }' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }' +
-      '.pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; ' +
-      '  background: var(--bk-pill-bg); border: 1px solid var(--bk-pill-border); box-shadow: var(--bk-pill-shadow); ' +
-      '  cursor: pointer; font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif; ' +
-      '  animation: bk-pill-in .4s cubic-bezier(.21,1.02,.73,1); }' +
-      '@keyframes bk-pill-in { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
-      '.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bk-pill-primary); flex: none; }' +
-      '.num { font-size: 13px; font-weight: 700; color: var(--bk-pill-text); font-variant-numeric: tabular-nums; }' +
-      '.panel { position: absolute; left: 0; bottom: calc(100% + 12px); width: 252px; background: var(--bk-pill-bg); ' +
-      '  border: 1px solid var(--bk-pill-border); border-radius: 18px; box-shadow: var(--bk-pill-shadow); padding: 16px; ' +
-      '  font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif; ' +
-      '  animation: bk-panel-in .3s cubic-bezier(.21,1.02,.73,1); }' +
-      '@keyframes bk-panel-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
-      '.p-head { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--bk-pill-sub); margin-bottom: 8px; }' +
-      '.p-hero { font-size: 26px; font-weight: 800; color: var(--bk-pill-primary); font-variant-numeric: tabular-nums; margin-bottom: 12px; }' +
+      '.pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; ' +
+      '  background: var(--bk-pill-card); border: 1px solid var(--bk-pill-line); box-shadow: var(--bk-pill-shadow); ' +
+      '  cursor: pointer; font-family: var(--bk-pill-sans); animation: bk-pill-in .25s ease-out; }' +
+      '@keyframes bk-pill-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
+      '.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bk-pill-pink); flex: none; }' +
+      '.label { font-size: 12px; color: var(--bk-pill-sub); }' +
+      '.num { font-size: 12.5px; font-weight: 600; color: var(--bk-pill-pink); font-variant-numeric: tabular-nums; }' +
+      '.panel { position: absolute; left: 0; bottom: calc(100% + 8px); width: 236px; background: var(--bk-pill-card); ' +
+      '  border: 1px solid var(--bk-pill-line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 14px; ' +
+      '  font-family: var(--bk-pill-sans); animation: bk-panel-in .2s ease-out; }' +
+      '@keyframes bk-panel-in { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
+      '.p-head { font-size: 12px; color: var(--bk-pill-faint); margin-bottom: 6px; }' +
+      '.p-hero { font-size: 22px; font-weight: 600; line-height: 1.3; color: var(--bk-pill-pink); font-variant-numeric: tabular-nums; margin-bottom: 10px; }' +
       '.p-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; font-size: 12.5px; color: var(--bk-pill-sub); }' +
+      '.p-row + .p-row { border-top: 1px solid var(--bk-pill-line); }' +
       '.p-row b { color: var(--bk-pill-text); font-weight: 600; font-variant-numeric: tabular-nums; }' +
-      '.p-gray { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; ' +
-      '  background: rgba(154,161,180,.12); font-size: 12px; color: var(--bk-pill-text); }' +
-      '.btn { border: none; border-radius: 9px; font-size: 12px; font-weight: 600; cursor: pointer; padding: 8px 12px; ' +
-      '  transition: transform .15s, box-shadow .15s; }' +
-      '.btn:hover { transform: translateY(-1px); }' +
-      '.btn-restore { background: linear-gradient(135deg,#5B6CFF,#7C8AFF); color: #fff; box-shadow: 0 6px 16px rgba(91,108,255,.3); }' +
-      '.btn-settings { display: block; width: 100%; margin-top: 12px; background: var(--bk-pill-soft); color: var(--bk-pill-text); }' +
+      '.p-gray { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 6px; ' +
+      '  background: var(--bk-pill-pink-soft); font-size: 12px; color: var(--bk-pill-text); }' +
+      '.btn { border: none; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; padding: 7px 10px; ' +
+      '  transition: background .15s; }' +
+      '.btn-restore { background: var(--bk-pill-pink); color: #FFFFFF; }' +
+      '.btn-restore:hover { background: var(--bk-pill-pink-hover); }' +
+      '.btn-settings { display: block; width: 100%; margin-top: 10px; background: var(--bk-pill-sub-bg); color: var(--bk-pill-text); }' +
+      '.btn-settings:hover { background: var(--bk-pill-line); }' +
       '</style>' +
       '<div class="pill">' +
       '  <span class="dot"></span>' +
-      '  <span class="num" data-bind="num">--</span>' +
+      '  <span class="label">今日</span>' +
+      '  <b class="num" data-bind="num">--</b>' +
       '</div>' +
       '<div class="panel" data-bind="panel" style="display:none">' +
       '  <div class="p-head">今日用量</div>' +
@@ -101,9 +103,11 @@
     });
     root.querySelector('.btn-restore').addEventListener('click', function () {
       shared.sessionSet(RESTORE_KEY, String(Math.floor(Date.now() / 1000) + RESTORE_SECONDS));
+      root.querySelector('[data-bind="gray"]').style.display = 'none';
     });
     root.querySelector('.btn-settings').addEventListener('click', function () {
-      try { chrome.runtime.openOptionsPage(); } catch (e) { /* 忽略 */ }
+      // 内容脚本里没有 chrome.runtime.openOptionsPage，交给 service worker 打开
+      chrome.runtime.sendMessage({ type: MSG.OPEN_OPTIONS });
     });
 
     document.body.appendChild(hostEl);
@@ -128,7 +132,7 @@
     const seconds = Number(resp.today.seconds) || 0;
     const visits = Number(resp.today.visits) || 0;
 
-    root.querySelector('[data-bind="num"]').textContent = '今日 ' + compactMinutes(seconds);
+    root.querySelector('[data-bind="num"]').textContent = compactMinutes(seconds);
     root.querySelector('[data-bind="hero"]').textContent = shared.formatDurationMinutes(seconds);
     root.querySelector('[data-bind="visits"]').textContent = visits + ' 次';
     root.querySelector('[data-bind="reminder"]').textContent =
@@ -136,11 +140,17 @@
         ? '已关闭'
         : shared.nextReminderMinutes(seconds, settings.reminderIntervalMin) + ' 分钟';
 
-    // 专注褪色状态：当前已灰度时给出「临时恢复」入口
+    // 专注褪色状态：当前已灰度时给出「临时恢复」入口；
+    // 用户点过「临时恢复色彩」且尚未到期时，不显示这一块
     const grayEl = root.querySelector('[data-bind="gray"]');
     const grayActive = settings.grayscaleEnabled && Number(settings.grayscaleAtMin) > 0 &&
       seconds >= (Number(settings.grayscaleAtMin) * 60);
     grayEl.style.display = grayActive ? 'flex' : 'none';
+    if (grayActive) {
+      shared.sessionGet(RESTORE_KEY).then(function (value) {
+        if (Number(value) > Math.floor(Date.now() / 1000)) grayEl.style.display = 'none';
+      });
+    }
   }
 
   function fetchNow() {

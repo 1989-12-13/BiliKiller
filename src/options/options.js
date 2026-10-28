@@ -35,6 +35,25 @@
 
   function $(sel) { return document.querySelector(sel); }
 
+  /* ---------- 滑杆进度 ---------- */
+
+  /** 把当前取值换算成已选区间宽度，写入 --fill 供轨道渐变使用 */
+  function paintRange(range) {
+    const min = Number(range.min);
+    const max = Number(range.max);
+    const value = Number(range.value);
+    const percent = max > min ? ((value - min) / (max - min)) * 100 : 0;
+    range.style.setProperty('--fill', percent + '%');
+  }
+
+  function initRanges() {
+    const ranges = document.querySelectorAll('input[type="range"]');
+    for (const range of ranges) {
+      paintRange(range);
+      range.addEventListener('input', function () { paintRange(range); });
+    }
+  }
+
   async function loadSettings() {
     settings = await shared.getSettings();
   }
@@ -88,8 +107,8 @@
   function updatePreview() {
     const v = Number(settings.reminderIntervalMin) || 30;
     $('#reminder-preview').textContent = settings.reminderEnabled
-      ? '当天累计观看每满 ' + v + ' 分钟，会在页面右下角弹出温和提醒，你可以自由选择「再看一会」或「休息一下」。'
-      : '提醒已关闭。开启后，观看达到设定时长会收到非强制的休息提醒。';
+      ? '每累计观看 ' + v + ' 分钟，页面右下角弹出提醒。'
+      : '提醒已关闭。';
   }
 
   function initReminderSection() {
@@ -118,7 +137,7 @@
     });
   }
 
-  /* ---------- 专注模式（硬上限） ---------- */
+  /* ---------- 专注模式 ---------- */
 
   function initHardLimitSection() {
     const toggle = $('#hard-limit-enabled');
@@ -143,7 +162,7 @@
     });
   }
 
-  /* ---------- 专注褪色（灰度） ---------- */
+  /* ---------- 专注褪色 ---------- */
 
   function initGrayscaleSection() {
     const toggle = $('#grayscale-enabled');
@@ -296,6 +315,7 @@
     initHardLimitSection();
     initGrayscaleSection();
     initUsagePillSection();
+    initRanges();
     initDataSection();
     renderReport();
   });

@@ -9,12 +9,15 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
-        <div class="logo">B</div>
-        <span class="brand-name">BiliKiller</span>
+        <span class="seal" aria-hidden="true">B</span>
+        <div class="brand-text">
+          <span class="wordmark">BiliKiller</span>
+          <span class="wordmark-sub">哔哩哔哩防沉迷助手</span>
+        </div>
       </div>
       <nav class="nav">
         <a href="#rules">净化规则</a>
-        <a href="#reminder">提醒与目标</a>
+        <a href="#reminder">提醒与阈值</a>
         <a href="#report">使用报表</a>
         <a href="#data">数据管理</a>
       </nav>
@@ -22,19 +25,30 @@
   </header>
 
   <main class="main">
+    <header class="lede">
+      <h1 class="lede-title">净化规则、提醒阈值与使用报表</h1>
+      <p class="lede-desc">所有设置即时生效，数据只保存在本机。</p>
+    </header>
+
     <section id="rules" class="section">
-      <h2 class="section-title">净化规则</h2>
-      <p class="section-sub">分项控制各页面推荐内容的隐藏，关闭开关后对应页面恢复原样，即时生效。</p>
+      <div class="section-head">
+        <h2 class="section-title">净化规则</h2>
+        <p class="section-sub">分项控制各页面推荐内容的隐藏，关闭开关后对应页面恢复原样，即时生效。</p>
+      </div>
       <div class="rule-grid" id="rule-cards"></div>
     </section>
 
     <section id="reminder" class="section">
-      <h2 class="section-title">提醒与目标</h2>
+      <div class="section-head">
+        <h2 class="section-title">提醒与阈值</h2>
+        <p class="section-sub">提醒只在视频页出现，可以延后、暂停播放或当天关闭。</p>
+      </div>
+
       <div class="card">
         <div class="row">
           <div class="row-text">
             <h3>温和提醒</h3>
-            <p>观看时长达到间隔的整数倍时，在页面右下角弹出可关闭的提醒浮层，绝不强制拦截</p>
+            <p>达到设定的观看间隔时，在页面右下角弹出提醒</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="reminder-enabled">
@@ -59,8 +73,8 @@
       <div class="card">
         <div class="row">
           <div class="row-text">
-            <h3>专注模式（硬上限）</h3>
-            <p>可选强化层，默认关闭。开启后当日观看满 <strong id="hard-limit-value">90</strong> 分钟时，视频页会自动暂停播放并弹出休息门闩（可「去首页」或「再坚持 5 分钟」）</p>
+            <h3>专注模式</h3>
+            <p>默认关闭。开启后当日观看满 <strong id="hard-limit-value">90</strong> 分钟，视频页暂停播放并弹出提示，可回首页或再看 5 分钟</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="hard-limit-enabled">
@@ -70,8 +84,8 @@
         <div class="divider"></div>
         <div class="row">
           <div class="row-text">
-            <h3>硬上限时长</h3>
-            <p>达到后暂停视频并提醒休息</p>
+            <h3>上限时长</h3>
+            <p>达到后暂停视频并弹出提示</p>
           </div>
           <div class="range-wrap">
             <span class="range-bound">30</span>
@@ -84,8 +98,8 @@
       <div class="card">
         <div class="row">
           <div class="row-text">
-            <h3>专注褪色（灰度）</h3>
-            <p>观看满 <strong id="grayscale-value">60</strong> 分钟后，整个 B 站页面转为灰度，作为非打断式的沉浸提醒（可选，默认关闭）</p>
+            <h3>专注褪色</h3>
+            <p>默认关闭。观看满 <strong id="grayscale-value">60</strong> 分钟后整站转为灰度，不拦截任何操作</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="grayscale-enabled">
@@ -110,7 +124,7 @@
         <div class="row">
           <div class="row-text">
             <h3>全局用量胶囊</h3>
-            <p>在 B 站任意页面左下角常驻今日用量小胶囊，点击展开详情与「临时恢复色彩」</p>
+            <p>在任意页面左下角显示今日用量，点击展开详情</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="usage-pill-enabled">
@@ -121,7 +135,11 @@
     </section>
 
     <section id="report" class="section">
-      <h2 class="section-title">使用报表</h2>
+      <div class="section-head">
+        <h2 class="section-title">使用报表</h2>
+        <p class="section-sub">统计视频页实际播放的时间，暂停、切走标签页、悬浮预览都不计入。</p>
+      </div>
+
       <div class="summary">
         <div class="stat-card">
           <p class="stat-label">本周合计</p>
@@ -136,10 +154,11 @@
           <p class="stat-value" id="total-visits">--</p>
         </div>
       </div>
+
       <div class="card">
         <div class="chart-head">
           <h3>近 30 天观看时长</h3>
-          <span class="chart-unit">分钟</span>
+          <span class="chart-unit">分钟 / 天</span>
         </div>
         <div class="chart30" id="chart-30d"></div>
         <div class="axis" id="chart-axis"></div>
@@ -147,8 +166,11 @@
     </section>
 
     <section id="data" class="section">
-      <h2 class="section-title">数据管理</h2>
-      <p class="section-sub">所有数据仅存储在本机 chrome.storage.local，不上传服务器。可导出备份、导入恢复或清空统计。</p>
+      <div class="section-head">
+        <h2 class="section-title">数据管理</h2>
+        <p class="section-sub">所有数据仅存储在本机 chrome.storage.local，不上传服务器。可导出备份、导入恢复或清空统计。</p>
+      </div>
+
       <div class="card">
         <div class="row">
           <div class="row-text">

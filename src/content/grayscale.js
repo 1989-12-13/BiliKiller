@@ -92,17 +92,13 @@
   }
 
   chrome.storage.onChanged.addListener(function (changes, area) {
-    if (area !== 'local' || !changes[SETTINGS_KEY]) return;
+    if (area !== 'local') return;
+    // 「临时恢复色彩」写入 local 后立即重算，无需等下一个轮询周期
+    if (changes[RESTORE_KEY]) check();
+    if (!changes[SETTINGS_KEY]) return;
     settings = Object.assign({}, shared.DEFAULT_SETTINGS, changes[SETTINGS_KEY].newValue || {});
     if (!settings.enabled || !settings.grayscaleEnabled) removeOverlay();
   });
-
-  // 「临时恢复色彩」写入会话存储后立即响应，无需等下一个轮询周期
-  if (chrome.storage.session && chrome.storage.session.onChanged) {
-    chrome.storage.session.onChanged.addListener(function (changes, area) {
-      if (area === 'session' && changes[RESTORE_KEY]) check();
-    });
-  }
 
   loadSettings();
   check();

@@ -21,9 +21,19 @@
       return loc.hostname === 'www.bilibili.com' &&
         (loc.pathname === '/' || loc.pathname === '/index.html');
     },
-    // 视频播放页
+    // 视频播放页：投稿视频、番剧/影视、放映厅、播放列表、课堂
     video: function (loc) {
-      return loc.hostname === 'www.bilibili.com' && loc.pathname.indexOf('/video/') === 0;
+      if (loc.hostname !== 'www.bilibili.com') return false;
+      const p = loc.pathname;
+      return p.indexOf('/video/') === 0 ||
+        p.indexOf('/bangumi/play/') === 0 ||
+        p.indexOf('/festival/') === 0 ||
+        p.indexOf('/list/') === 0 ||
+        p.indexOf('/cheese/play/') === 0;
+    },
+    // 直播页：只计时，不注入面板
+    live: function (loc) {
+      return loc.hostname === 'live.bilibili.com';
     },
     // 热门 / 排行榜（/v/popular/all、/v/popular/rank/* 等）
     hot: function (loc) {

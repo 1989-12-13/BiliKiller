@@ -4,10 +4,11 @@
  * 规则：
  * - 每 15 秒向后台查询当日累计观看时长；
  * - 时长达到提醒间隔（reminderIntervalMin）的整数倍时，右下角弹出非强制提醒浮层；
- * - 「再看一会」/ 关闭：仅延迟到下一个阈值；「休息一下」：暂停视频再延迟；
+ * - 「继续观看」/ 关闭：仅延迟到下一个阈值；「暂停播放」：暂停视频再延迟；
  * - 「今天不再提醒」：延迟到本地当天结束，其余时刻不再打扰；
- * - 已提醒阈值与延迟时间存入 chrome.storage.local（sessionState），跨标签页共享，避免开新标签页重复打扰；
- * - UI 使用 Shadow DOM 隔离，颜色跟随 B 站深色开关（:host-context(html.dark)）。
+ * - 已提醒阈值与延迟时间存入 chrome.storage.local（sessionState），按天记录、跨天失效，
+ *   跨标签页共享，避免开新标签页重复打扰；
+ * - UI 使用 Shadow DOM 隔离，颜色跟随 B 站深色开关（html.dark / html.bili_dark）。
  */
 (function () {
   'use strict';
@@ -23,14 +24,6 @@
   const SNOOZE_KEY = 'bk-snooze-until-sec';
   const SHOWN_KEY = 'bk-shown-multiple'; // 已提醒阈值（跨标签页共享，刷新后仍记住）
 
-  /** 提醒文案按提醒次数（阈值倍数）轮换，避免每次弹窗千篇一律 */
-  const REMINDER_TEXTS = [
-    '内容永远刷不完，但时间和精力是有限的。<br>要不要稍作休息，或把下次提醒推迟一个间隔？',
-    '你已经专注看了很久，眼睛和身体都需要透口气。<br>起来活动一下、喝口水吧。',
-    '算法总想让你「再看一个」，但今天的目标你心里清楚。<br>要不先停在这里？',
-    '连续观看很容易忘记时间，此刻停下也是不错的选择。<br>休息片刻再继续。',
-  ];
-
   let settings = Object.assign({}, shared.DEFAULT_SETTINGS);
   let hostEl = null;
 
@@ -40,23 +33,35 @@
     });
   }
 
-  /** 读取「已提醒过的阈值倍数」：默认 -1（未提醒过） */
+  /** 提醒状态都按天存：跨天后自动失效，昨天的延迟不会压住今天的提醒 */
+  function readDayState(raw) {
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw);
+      if (v && typeof v === 'object' && v.day === shared.todayKey()) return v;
+    } catch (e) {
+      /* 旧版本存的是纯数字，视为过期 */
+    }
+    return null;
+  }
+
+  /** 读取「已提醒过的阈值倍数」：默认 -1（今天还没提醒过） */
   async function getShownMultiple() {
-    const v = Number(await shared.sessionGet(SHOWN_KEY));
-    return Number.isFinite(v) ? v : -1;
+    const state = readDayState(await shared.sessionGet(SHOWN_KEY));
+    return state && Number.isFinite(Number(state.multiple)) ? Number(state.multiple) : -1;
   }
 
   function setShownMultiple(m) {
-    return shared.sessionSet(SHOWN_KEY, String(m));
+    return shared.sessionSet(SHOWN_KEY, JSON.stringify({ day: shared.todayKey(), multiple: m }));
   }
 
   async function snoozeUntil() {
-    const v = Number(await shared.sessionGet(SNOOZE_KEY));
-    return Number.isFinite(v) ? v : 0;
+    const state = readDayState(await shared.sessionGet(SNOOZE_KEY));
+    return state && Number.isFinite(Number(state.until)) ? Number(state.until) : 0;
   }
 
   function snoozeTo(seconds) {
-    return shared.sessionSet(SNOOZE_KEY, String(seconds));
+    return shared.sessionSet(SNOOZE_KEY, JSON.stringify({ day: shared.todayKey(), until: seconds }));
   }
 
   function dismiss() {
@@ -66,7 +71,7 @@
     }
   }
 
-  /** 暂停主播放器视频（「休息一下」：停下播放，缓解「再看一个」的惯性） */
+  /** 暂停主播放器视频 */
   function pauseVideoIfAny() {
     const p = globalThis.BK_PLAYER;
     if (p && typeof p.pause === 'function') p.pause();
@@ -81,68 +86,60 @@
   function show(seconds, intervalSec) {
     if (hostEl || !document.body) return;
 
-    // 提醒文案按第几次提醒（阈值倍数）轮换
-    const text = REMINDER_TEXTS[Math.floor(seconds / intervalSec) % REMINDER_TEXTS.length];
-
     hostEl = document.createElement('div');
     hostEl.style.cssText = 'all: initial; position: fixed; right: 24px; bottom: 24px; z-index: 2147483647;';
     const root = hostEl.attachShadow({ mode: 'open' });
     root.innerHTML =
       '<style>' +
-      // 颜色统一收敛为 CSS 变量：默认亮色，:host-context(html.dark) 跟随 B 站深色开关
-      ':host { all: initial; --bk-rem-card:#fff; --bk-rem-text:#1F2430; --bk-rem-sub:#6B7280; --bk-rem-soft:#F6F7FB; --bk-rem-later-bg:#EEF1FF; --bk-rem-later-text:#5B6CFF; --bk-rem-shadow:0 16px 48px rgba(31,36,48,.22), 0 0 0 1px rgba(91,108,255,.10); }' +
-      ':host-context(html.dark) { --bk-rem-card:#1E2029; --bk-rem-text:#E8E9ED; --bk-rem-sub:#9AA1B4; --bk-rem-soft:#17181F; --bk-rem-later-bg:#17181F; --bk-rem-later-text:#7C8AFF; --bk-rem-shadow:0 16px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08); }' +
+      // 颜色统一收敛为 CSS 变量：默认亮色，跟随 B 站深色开关（html.dark / html.bili_dark）
+      ':host { all: initial; --bk-rem-card:#FFFFFF; --bk-rem-text:#18191C; --bk-rem-faint:#9499A0; --bk-rem-pink:#FB7299; --bk-rem-pink-hover:#FC8BAB; --bk-rem-line:#E3E5E7; --bk-rem-sub-bg:#F6F7F8; --bk-rem-sans:"PingFang SC","HarmonyOS_Regular","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif; --bk-rem-shadow:0 8px 24px rgba(0,0,0,.12); }' +
+      ':host-context(html.dark), :host-context(html.bili_dark) { --bk-rem-card:#202123; --bk-rem-text:#E7E9EB; --bk-rem-faint:#757A81; --bk-rem-pink:#D44E7D; --bk-rem-pink-hover:#DC6D94; --bk-rem-line:#2F3134; --bk-rem-sub-bg:#242628; --bk-rem-shadow:0 8px 24px rgba(0,0,0,.5); }' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }' +
-      '.card { width: 320px; background: var(--bk-rem-card); border-radius: 18px; overflow: hidden; ' +
-      '  box-shadow: var(--bk-rem-shadow); ' +
-      '  font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif; ' +
-      '  animation: bk-r-in .4s cubic-bezier(.21,1.02,.73,1); }' +
-      '@keyframes bk-r-in { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
-      '.bar { height: 5px; background: linear-gradient(90deg,#5B6CFF,#7C8AFF,#FB7299); }' +
-      '.body { padding: 18px 20px 20px; position: relative; }' +
-      '.title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--bk-rem-text); margin-bottom: 8px; }' +
-      '.dot { width: 8px; height: 8px; border-radius: 50%; background: #FB7299; animation: bk-r-pulse 1.6s ease-in-out infinite; }' +
-      '@keyframes bk-r-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.8); } }' +
-      '.close { position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border: none; border-radius: 8px; ' +
-      '  background: transparent; color: var(--bk-rem-sub); font-size: 16px; line-height: 1; cursor: pointer; transition: background .15s; }' +
-      '.close:hover { background: var(--bk-rem-soft); color: var(--bk-rem-text); }' +
-      '.text { font-size: 12.5px; color: var(--bk-rem-sub); line-height: 1.7; margin-bottom: 16px; }' +
-      '.actions { display: flex; gap: 10px; }' +
-      '.btn { flex: 1; height: 38px; border-radius: 10px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; ' +
-      '  transition: transform .15s, box-shadow .15s; }' +
-      '.btn:hover { transform: translateY(-1px); }' +
-      '.btn-later { background: var(--bk-rem-later-bg); color: var(--bk-rem-later-text); }' +
-      '.btn-later:hover { box-shadow: 0 6px 16px rgba(91,108,255,.2); }' +
-      '.btn-rest { background: linear-gradient(135deg,#5B6CFF,#7C8AFF); color: #fff; }' +
-      '.btn-rest:hover { box-shadow: 0 6px 16px rgba(91,108,255,.4); }' +
-      '.mute-today { display: block; margin: 14px auto 0; padding: 0; border: none; background: none; ' +
-      '  color: var(--bk-rem-sub); font-size: 11.5px; cursor: pointer; opacity: .75; transition: opacity .15s; }' +
-      '.mute-today:hover { opacity: 1; text-decoration: underline; }' +
+      '.card { width: 320px; background: var(--bk-rem-card); border: 1px solid var(--bk-rem-line); border-radius: 8px; ' +
+      '  overflow: hidden; box-shadow: var(--bk-rem-shadow); font-family: var(--bk-rem-sans); ' +
+      '  animation: bk-r-in .25s ease-out; }' +
+      '@keyframes bk-r-in { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
+      '.body { position: relative; padding: 16px; }' +
+      '.title { display: flex; align-items: center; gap: 8px; padding-right: 28px; font-size: 14px; font-weight: 600; color: var(--bk-rem-text); margin-bottom: 8px; }' +
+      '.mark { width: 20px; height: 20px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 6px; ' +
+      '  background: var(--bk-rem-pink); color: #FFFFFF; font-size: 11px; font-weight: 600; }' +
+      '.close { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; border: none; border-radius: 6px; ' +
+      '  background: transparent; color: var(--bk-rem-faint); font-family: inherit; font-size: 16px; line-height: 1; cursor: pointer; ' +
+      '  transition: background .15s, color .15s; }' +
+      '.close:hover { background: var(--bk-rem-sub-bg); color: var(--bk-rem-text); }' +
+      '.actions { display: flex; gap: 8px; }' +
+      '.btn { flex: 1; height: 32px; border-radius: 6px; border: none; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; ' +
+      '  transition: background .15s, color .15s; }' +
+      '.btn-later { background: var(--bk-rem-sub-bg); color: var(--bk-rem-text); }' +
+      '.btn-later:hover { background: var(--bk-rem-line); }' +
+      '.btn-rest { background: var(--bk-rem-pink); color: #FFFFFF; }' +
+      '.btn-rest:hover { background: var(--bk-rem-pink-hover); }' +
+      '.mute-today { display: block; margin: 12px auto 0; padding: 0; border: none; background: none; ' +
+      '  color: var(--bk-rem-faint); font-family: inherit; font-size: 11.5px; cursor: pointer; transition: color .15s; }' +
+      '.mute-today:hover { color: var(--bk-rem-text); text-decoration: underline; }' +
       '</style>' +
       '<div class="card">' +
-      '  <div class="bar"></div>' +
       '  <div class="body">' +
       '    <button class="close" type="button" aria-label="关闭">×</button>' +
-      '    <div class="title"><span class="dot"></span>今日已观看 ' + shared.formatDuration(seconds) + '</div>' +
-      '    <p class="text">' + text + '</p>' +
+      '    <div class="title"><span class="mark">B</span>今日已观看 ' + shared.formatDuration(seconds) + '</div>' +
       '    <div class="actions">' +
-      '      <button class="btn btn-later" type="button">再看一会</button>' +
-      '      <button class="btn btn-rest" type="button">休息一下</button>' +
+      '      <button class="btn btn-later" type="button">继续观看</button>' +
+      '      <button class="btn btn-rest" type="button">暂停播放</button>' +
       '    </div>' +
       '    <button class="mute-today" type="button">今天不再提醒</button>' +
       '  </div>' +
       '</div>';
 
-    // 「再看一会」：仅推迟到下一个阈值，不打断播放
+    // 「继续观看」：仅推迟到下一个阈值，不打断播放
     root.querySelector('.btn-later').addEventListener('click', function () {
       snoozeAndClose(seconds, intervalSec);
     });
-    // 「休息一下」：先暂停视频，再推迟提醒——用动作打破连续观看的惯性
+    // 「暂停播放」：先暂停视频，再推迟提醒
     root.querySelector('.btn-rest').addEventListener('click', function () {
       pauseVideoIfAny();
       snoozeAndClose(seconds, intervalSec);
     });
-    // 关闭按钮：等同于「再看一会」，推迟到下一个阈值
+    // 关闭按钮：等同于「继续观看」，推迟到下一个阈值
     root.querySelector('.close').addEventListener('click', function () {
       snoozeAndClose(seconds, intervalSec);
     });

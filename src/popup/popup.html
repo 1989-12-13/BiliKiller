@@ -7,10 +7,10 @@
 </head>
 <body>
   <div class="popup">
-    <header class="brand">
-      <div class="brand-left">
-        <div class="logo">B</div>
-        <div class="brand-text">
+    <header class="masthead">
+      <div class="masthead-id">
+        <span class="seal" aria-hidden="true">B</span>
+        <div class="masthead-text">
           <h1>BiliKiller</h1>
           <p>哔哩哔哩防沉迷助手</p>
         </div>
@@ -21,28 +21,39 @@
       </label>
     </header>
 
-    <section class="today-card">
-      <p class="today-label">今日观看时长</p>
-      <p class="today-value" id="today-duration">--</p>
-      <p class="today-sub">
-        <span id="today-visits">访问 0 次</span>
-        <span class="sep">·</span>
-        <span id="next-reminder">--</span>
-      </p>
+    <section class="hero">
+      <div class="hero-head">
+        <span class="eyebrow">今日观看</span>
+        <span class="hero-meta">
+          <span id="today-visits">访问 0 次</span>
+          <i class="sep"></i>
+          <span id="next-reminder">--</span>
+        </span>
+      </div>
+      <p class="hero-value" id="today-duration">--</p>
     </section>
 
-    <section class="chart-card">
-      <div class="chart-head">
+    <section class="panel">
+      <div class="panel-head">
         <h2>近 7 天</h2>
-        <span class="chart-unit">分钟</span>
+        <span>分钟 · 每日</span>
       </div>
       <div class="chart" id="chart-7d"></div>
     </section>
 
-    <section class="toggles" id="toggles"></section>
+    <section class="panel panel-list">
+      <div class="panel-head">
+        <h2>净化与提醒</h2>
+        <span>即时生效</span>
+      </div>
+      <div class="toggles" id="toggles"></div>
+    </section>
 
     <footer class="footer">
-      <button id="open-options" class="link-btn" type="button">更多设置与 30 天报表 →</button>
+      <button id="open-options" class="link-btn" type="button">
+        <span>使用报表与完整设置</span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
     </footer>
   </div>
 

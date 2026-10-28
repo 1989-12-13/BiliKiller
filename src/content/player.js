@@ -19,7 +19,8 @@
 
   if (window.top !== window) return;
 
-  const MAIN_SELECTORS = '#bilibili-player video, .bpx-player-video-wrap video, .bpx-player video';
+  // 投稿视频 / 番剧 / 播放列表 / 课堂 / 直播（直播播放器在 .player-ctnr 内）
+  const MAIN_SELECTORS = '#bilibili-player video, .bpx-player-video-wrap video, .bpx-player video, .player-ctnr video';
 
   let currentVideo = null;
   let state = 'none'; // playing | waiting | paused | ended | none

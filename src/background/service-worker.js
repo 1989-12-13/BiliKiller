@@ -73,23 +73,34 @@ function addVisit() {
 /* ---------------- 「本次连续观看」统一累计：SW 单点串行化，多标签页只上报增量 ---------------- */
 
 const SESSION_KEY = 'bk-session-total'; // 累计秒数（chrome.storage.local）
+const SESSION_LAST_KEY = 'bk-session-last'; // 最后一次上报的时间戳（毫秒）
+const SESSION_IDLE_MS = 30 * 60 * 1000; // 连续 30 分钟没有播放，视为新一轮会话
+
+function isSessionFresh(last, now) {
+  return Number.isFinite(last) && last > 0 && now - last <= SESSION_IDLE_MS;
+}
 
 function addSession(seconds) {
   return serialized(async function () {
     const n = Math.round(Number(seconds));
     if (!Number.isFinite(n) || n <= 0) return;
-    const data = await chrome.storage.local.get(SESSION_KEY);
+    const data = await chrome.storage.local.get([SESSION_KEY, SESSION_LAST_KEY]);
+    const now = Date.now();
+    const last = Number(data && data[SESSION_LAST_KEY]);
     const cur = Number(data && data[SESSION_KEY]);
-    const base = Number.isFinite(cur) && cur > 0 ? cur : 0;
-    await chrome.storage.local.set({ [SESSION_KEY]: base + n });
+    // 空闲超过阈值就从头计数，避免「本次连续观看」跨着几小时的空档继续累加
+    const base = isSessionFresh(last, now) && Number.isFinite(cur) && cur > 0 ? cur : 0;
+    await chrome.storage.local.set({ [SESSION_KEY]: base + n, [SESSION_LAST_KEY]: now });
   });
 }
 
 function getSessionTotal() {
   return serialized(async function () {
-    const data = await chrome.storage.local.get(SESSION_KEY);
+    const data = await chrome.storage.local.get([SESSION_KEY, SESSION_LAST_KEY]);
+    const now = Date.now();
+    const last = Number(data && data[SESSION_LAST_KEY]);
     const cur = Number(data && data[SESSION_KEY]);
-    return Number.isFinite(cur) && cur > 0 ? cur : 0;
+    return isSessionFresh(last, now) && Number.isFinite(cur) && cur > 0 ? cur : 0;
   });
 }
 
@@ -119,7 +130,7 @@ async function setBadgeFromDay(seconds) {
     const minutes = Math.floor((Number(seconds) || 0) / 60);
     const text = minutes <= 0 ? '' : (minutes > 99 ? '99+' : String(minutes));
     await chrome.action.setBadgeText({ text: text });
-    await chrome.action.setBadgeBackgroundColor({ color: '#5B6CFF' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#F85A54' });
   } catch (e) {
     /* action 不可用（如部分环境）时静默忽略，不影响统计主流程 */
   }
@@ -184,6 +195,10 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       case MSG.SAVE_SETTINGS:
         return { ok: true, settings: await saveSettings(msg.settings) };
 
+      case MSG.OPEN_OPTIONS:
+        await chrome.runtime.openOptionsPage();
+        return { ok: true };
+
       default:
         return { ok: false, error: 'unknown message type: ' + msg.type };
     }
@@ -217,7 +232,7 @@ chrome.runtime.onConnect.addListener(function (port) {
       pendingClearTimer = setTimeout(function () {
         pendingClearTimer = null;
         if (liveTabPorts.size === 0) {
-          chrome.storage.local.remove('bk-session-total').catch(function () {});
+          chrome.storage.local.remove([SESSION_KEY, SESSION_LAST_KEY]).catch(function () {});
         }
       }, 3000);
     }
@@ -231,15 +246,35 @@ chrome.runtime.onInstalled.addListener(function () {
   saveSettings({}).catch(function () {});
   pruneOldStats().catch(function () {});
   updateBadgeFromStorage().catch(function () {});
+  // 安装 / 更新时重排每日清理，丢掉旧版本按创建时间计数的定时
+  chrome.alarms.clear(ALARMS.DAILY_ROLLOVER, function () {
+    scheduleDailyRollover();
+  });
 });
 
 chrome.runtime.onStartup.addListener(function () {
   updateBadgeFromStorage().catch(function () {});
   // 浏览器重启兜底：正常关闭会触发各标签页端口断开并清空，这里再兜底清一次，避免上次累计残留
-  chrome.storage.local.remove('bk-session-total').catch(function () {});
+  chrome.storage.local.remove([SESSION_KEY, SESSION_LAST_KEY]).catch(function () {});
 });
 
-chrome.alarms.create(ALARMS.DAILY_ROLLOVER, { periodInMinutes: 24 * 60 });
+/**
+ * 每日清理：只在 alarm 不存在时创建，避免 SW 每次唤醒都重建、把倒计时一直往后推。
+ * 首次触发定在次日 0 点，之后每 24 小时一次。
+ */
+function scheduleDailyRollover() {
+  chrome.alarms.get(ALARMS.DAILY_ROLLOVER, function (alarm) {
+    if (alarm) return;
+    const next = new Date();
+    next.setHours(24, 0, 0, 0);
+    chrome.alarms.create(ALARMS.DAILY_ROLLOVER, {
+      when: next.getTime(),
+      periodInMinutes: 24 * 60,
+    });
+  });
+}
+
+scheduleDailyRollover();
 chrome.alarms.onAlarm.addListener(function (alarm) {
   if (alarm.name === ALARMS.DAILY_ROLLOVER) {
     pruneOldStats()

@@ -23,8 +23,8 @@
     hideComments: false, // 沉浸观看：隐藏视频页评论区（默认关）
     reminderEnabled: true, // 温和提醒总开关
     reminderIntervalMin: 30, // 提醒间隔（分钟）
-    hardLimitEnabled: false, // 专注模式（可选硬上限）总开关，默认关闭以保留温和哲学
-    hardLimitMin: 90, // 专注模式硬上限（分钟）：达到后暂停视频并弹出休息门闩
+    hardLimitEnabled: false, // 专注模式（可选硬上限）总开关，默认关闭
+    hardLimitMin: 90, // 专注模式硬上限（分钟）：达到后暂停视频并弹出提示
     grayscaleEnabled: false, // 专注褪色：达阈值后整站转为灰度（默认关）
     grayscaleAtMin: 60, // 专注褪色触发阈值（分钟）
     usagePillEnabled: true, // 全局用量胶囊：B 站任意页面左下角常驻今日用量
@@ -41,6 +41,7 @@
     SAVE_SETTINGS: 'bk:save-settings',
     ADD_SESSION: 'bk:add-session', // content -> SW：上报「本次连续观看」增量秒数 { seconds }
     GET_SESSION: 'bk:get-session', // content -> SW：读取「本次连续观看」累计秒数
+    OPEN_OPTIONS: 'bk:open-options', // content -> SW：打开扩展设置页（openOptionsPage 在内容脚本里不可用）
   });
 
   const ALARMS = Object.freeze({

@@ -1,5 +1,5 @@
 /**
- * BiliKiller 视频页观看统计面板：今日已看 / 本次连续观看 / 距下次提醒 / 今日访问。
+ * BiliKiller 视频页观看统计面板：今日已看 / 本次连续观看 / 距下次提醒。
  *
  * 依赖加载顺序（manifest content_scripts 数组顺序）：
  * messages.js → player.js → selectors.js → cleaner.js → bili-api.js
@@ -36,36 +36,37 @@
     style.id = VIDEO_STATS_STYLE_ID;
     const rules = [
       '#' + VIDEO_STATS_ID + ' {',
-      '  --bk-vs-bg: #FFFFFF;',
-      '  --bk-vs-text: #1F2430;',
-      '  --bk-vs-sub: #6B7280;',
-      '  --bk-vs-faint: #9AA1B4;',
-      '  --bk-vs-primary: #5B6CFF;',
-      '  --bk-vs-border: rgba(91,108,255,.08);',
-      '  --bk-vs-shadow: 0 8px 28px rgba(31,36,48,.05);',
-      '  box-sizing: border-box; margin: 0; padding: 20px; border-radius: 18px; background: var(--bk-vs-bg); border: 1px solid var(--bk-vs-border); box-shadow: var(--bk-vs-shadow); font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;',
+      '  --bk-vs-pink: #FB7299;',
+      '  --bk-vs-pink-soft: #FFF3F6;',
+      '  --bk-vs-card: #FFFFFF;',
+      '  --bk-vs-text: #18191C;',
+      '  --bk-vs-sub: #61666D;',
+      '  --bk-vs-faint: #9499A0;',
+      '  --bk-vs-line: #E3E5E7;',
+      '  --bk-vs-sub-bg: #F6F7F8;',
+      '  --bk-vs-sans: "PingFang SC","HarmonyOS_Regular","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;',
+      '  box-sizing: border-box; margin: 0; padding: 14px; border-radius: 8px; background: var(--bk-vs-card); border: 1px solid var(--bk-vs-line); box-shadow: 0 4px 12px rgba(0,0,0,.06); font-family: var(--bk-vs-sans); color: var(--bk-vs-text);',
       '  position: fixed; z-index: 10; top: 0; left: 0; will-change: transform;',
       '}',
-      'html.dark #' + VIDEO_STATS_ID + ' {',
-      '  --bk-vs-bg: #1E2029;',
-      '  --bk-vs-text: #E8E9ED;',
-      '  --bk-vs-sub: #9AA1B4;',
-      '  --bk-vs-faint: #6B7280;',
-      '  --bk-vs-primary: #7C8AFF;',
-      '  --bk-vs-border: rgba(255,255,255,.08);',
-      '  --bk-vs-shadow: 0 8px 28px rgba(0,0,0,.35);',
+      'html.dark #' + VIDEO_STATS_ID + ', html.bili_dark #' + VIDEO_STATS_ID + ' {',
+      '  --bk-vs-pink: #D44E7D;',
+      '  --bk-vs-pink-soft: #2F1A22;',
+      '  --bk-vs-card: #202123;',
+      '  --bk-vs-text: #E7E9EB;',
+      '  --bk-vs-sub: #A2A7AE;',
+      '  --bk-vs-faint: #757A81;',
+      '  --bk-vs-line: #2F3134;',
+      '  --bk-vs-sub-bg: #242628;',
       '}',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px; font-weight: 700; color: var(--bk-vs-text); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-logo { width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(135deg,#5B6CFF,#7C8AFF); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-hero { padding: 14px 16px; margin-bottom: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(91,108,255,.08), rgba(251,114,153,.08)); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-hero-label { display: block; font-size: 12px; font-weight: 600; color: var(--bk-vs-sub); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-hero-value { display: block; margin-top: 4px; font-size: 26px; font-weight: 800; color: var(--bk-vs-primary); font-variant-numeric: tabular-nums; }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-cell { padding: 10px 12px; border-radius: 12px; background: var(--bk-vs-bg); border: 1px solid var(--bk-vs-border); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-cell span { display: block; font-size: 11px; color: var(--bk-vs-faint); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-cell b { display: block; margin-top: 3px; font-size: 15px; font-weight: 700; color: var(--bk-vs-text); font-variant-numeric: tabular-nums; }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-session { padding: 10px 12px; margin-bottom: 10px; border-radius: 12px; font-size: 13px; font-weight: 600; color: var(--bk-vs-text); background: rgba(91,108,255,.07); border: 1px solid rgba(91,108,255,.14); }',
-      '#' + VIDEO_STATS_ID + ' .bk-vs-session b { color: var(--bk-vs-primary); font-variant-numeric: tabular-nums; }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 14px; font-weight: 600; color: var(--bk-vs-text); }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-logo { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #FFFFFF; background: var(--bk-vs-pink); }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-hero { padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; background: var(--bk-vs-pink-soft); }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-hero-label { display: block; font-size: 11px; color: var(--bk-vs-sub); }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-hero-value { display: block; margin-top: 2px; font-size: 24px; font-weight: 600; line-height: 1.3; color: var(--bk-vs-pink); font-variant-numeric: tabular-nums; }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-session { padding: 9px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 12.5px; color: var(--bk-vs-sub); background: var(--bk-vs-sub-bg); }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-session b { color: var(--bk-vs-text); font-weight: 600; font-variant-numeric: tabular-nums; }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 6px; background: var(--bk-vs-sub-bg); font-size: 12.5px; color: var(--bk-vs-sub); }',
+      '#' + VIDEO_STATS_ID + ' .bk-vs-foot b { font-size: 13px; font-weight: 600; color: var(--bk-vs-text); font-variant-numeric: tabular-nums; }',
     ];
     style.textContent = rules.join('\n');
     (document.head || document.documentElement).appendChild(style);
@@ -95,23 +96,19 @@
     const box = document.getElementById(VIDEO_STATS_ID);
     if (!box) return;
     const durEl = box.querySelector('[data-vs="duration"]');
-    const visitsEl = box.querySelector('[data-vs="visits"]');
     const remindEl = box.querySelector('[data-vs="reminder"]');
 
     if (!respToday || !respToday.ok) {
       durEl.textContent = '--';
-      visitsEl.textContent = '--';
       remindEl.textContent = '--';
       placeVideoStats(box);
       return;
     }
 
     const seconds = Number(respToday.today.seconds) || 0;
-    const visits = Number(respToday.today.visits) || 0;
     const settings = cleaner.getSettings();
 
     durEl.textContent = shared.formatDurationMinutes(seconds);
-    visitsEl.textContent = visits + ' 次';
 
     if (!settings.enabled || !settings.reminderEnabled) {
       remindEl.textContent = '已关闭';
@@ -152,16 +149,13 @@
       el.id = VIDEO_STATS_ID;
 
       el.innerHTML =
-        '<div class="bk-vs-head"><span class="bk-vs-logo">BK</span>观看统计</div>' +
+        '<div class="bk-vs-head"><span class="bk-vs-logo">B</span>观看统计</div>' +
         '<div class="bk-vs-hero">' +
         '  <span class="bk-vs-hero-label">今日已看</span>' +
         '  <span class="bk-vs-hero-value" data-vs="duration">--</span>' +
         '</div>' +
         '<div class="bk-vs-session">本次连续观看 <b data-vs="session">--</b></div>' +
-        '<div class="bk-vs-grid">' +
-        '  <div class="bk-vs-cell"><span>距下次提醒</span><b data-vs="reminder">--</b></div>' +
-        '  <div class="bk-vs-cell"><span>今日访问</span><b data-vs="visits">--</b></div>' +
-        '</div>';
+        '<div class="bk-vs-foot"><span>距下次提醒</span><b data-vs="reminder">--</b></div>';
 
       document.body.appendChild(el);
 
@@ -261,7 +255,8 @@
       pendingMs += now - segStart;
       segStart = 0;
     }
-    if (player.isPlaying()) {
+    // 与「今日已看」同一口径：只有播放页可见且正在播放时才累计
+    if (player.isPlaying() && document.visibilityState === 'visible') {
       segStart = now;
     }
     const sec = Math.floor(pendingMs / 1000);
@@ -275,6 +270,7 @@
   function startSessionTimer() {
     if (sessionTimer) return;
     unsubPlayer = player.onChange(function () { tick(); });
+    document.addEventListener('visibilitychange', tick);
     readTotal();
     tick();
     sessionTimer = setInterval(tick, 1000);
@@ -283,6 +279,7 @@
   function stopSessionTimer() {
     if (sessionTimer) { clearInterval(sessionTimer); sessionTimer = null; }
     if (unsubPlayer) { unsubPlayer(); unsubPlayer = null; }
+    document.removeEventListener('visibilitychange', tick);
     if (segStart) { pendingMs += performance.now() - segStart; segStart = 0; }
     const sec = Math.floor(pendingMs / 1000);
     if (sec > 0) sendAdd(sec);

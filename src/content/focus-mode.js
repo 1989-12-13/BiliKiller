@@ -1,11 +1,11 @@
 /**
  * BiliKiller 专注模式（可选硬上限，默认关闭）
  *
- * 与「温和提醒」互补的可选强化层：开启后，当日累计观看达到 hardLimitMin 分钟时，
- * 在视频页暂停播放并弹出全屏休息门闩，给出「去首页」与「再坚持 5 分钟」两个选择。
- * - 默认关闭（settings.hardLimitEnabled=false），保留「去诱导 + 温和提醒」的既有理念；
- * - 「再坚持 5 分钟」用 chrome.storage.local 记录绝对时间戳（跨标签页共享），
- *   5 分钟后若仍在观看会再次触发门闩；
+ * 开启后，当日累计观看达到 hardLimitMin 分钟时，在视频页暂停播放并弹出全屏提示，
+ * 给出「回首页」与「再看 5 分钟」两个选择。
+ * - 默认关闭（settings.hardLimitEnabled=false）；
+ * - 「再看 5 分钟」用 chrome.storage.local 记录绝对时间戳（跨标签页共享），
+ *   5 分钟后若仍在观看会再次触发；
  * - 仅拦截视频页，首页 / 搜索 / 热门等页面不受影响。
  *
  * 依赖加载顺序（manifest content_scripts 数组顺序）：
@@ -26,7 +26,7 @@
   const SETTINGS_KEY = shared.STORAGE_KEYS.SETTINGS;
 
   const CHECK_INTERVAL_MS = 10000; // 比温和提醒更勤，尽早拦截
-  const GRACE_SECONDS = 5 * 60; // 「再坚持 5 分钟」
+  const GRACE_SECONDS = 5 * 60; // 「再看 5 分钟」
   const SNOOZE_KEY = 'bk-hard-snooze-until-sec';
 
   let settings = Object.assign({}, shared.DEFAULT_SETTINGS);
@@ -74,44 +74,45 @@
     const root = hostEl.attachShadow({ mode: 'open' });
     root.innerHTML =
       '<style>' +
-      ':host { all: initial; --bk-fg-card:#fff; --bk-fg-text:#1F2430; --bk-fg-sub:#6B7280; --bk-fg-soft:#F6F7FB; --bk-fg-border:rgba(91,108,255,.12); }' +
-      ':host-context(html.dark) { --bk-fg-card:#1E2029; --bk-fg-text:#E8E9ED; --bk-fg-sub:#9AA1B4; --bk-fg-soft:#17181F; --bk-fg-border:rgba(255,255,255,.08); }' +
+      ':host { all: initial; --bk-fg-card:#FFFFFF; --bk-fg-text:#18191C; --bk-fg-sub:#61666D; --bk-fg-faint:#9499A0; --bk-fg-pink:#FB7299; --bk-fg-pink-hover:#FC8BAB; --bk-fg-pink-soft:#FFF3F6; --bk-fg-line:#E3E5E7; --bk-fg-sub-bg:#F6F7F8; --bk-fg-mask:rgba(0,0,0,.5); --bk-fg-sans:"PingFang SC","HarmonyOS_Regular","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif; }' +
+      ':host-context(html.dark), :host-context(html.bili_dark) { --bk-fg-card:#202123; --bk-fg-text:#E7E9EB; --bk-fg-sub:#A2A7AE; --bk-fg-faint:#757A81; --bk-fg-pink:#D44E7D; --bk-fg-pink-hover:#DC6D94; --bk-fg-pink-soft:#2F1A22; --bk-fg-line:#2F3134; --bk-fg-sub-bg:#242628; --bk-fg-mask:rgba(0,0,0,.65); }' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }' +
       '.mask { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; ' +
-      '  padding: 24px; background: rgba(15,17,24,.72); backdrop-filter: blur(6px); }' +
-      '.card { position: relative; width: min(440px, 100%); background: var(--bk-fg-card); border-radius: 22px; ' +
-      '  padding: 42px 36px 36px; text-align: center; border: 1px solid var(--bk-fg-border); ' +
-      '  box-shadow: 0 24px 80px rgba(0,0,0,.4); font-family: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif; ' +
-      '  animation: bk-fg-in .35s cubic-bezier(.21,1.02,.73,1); }' +
-      '@keyframes bk-fg-in { from { transform: translateY(20px) scale(.97); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }' +
-      '.icon { width: 60px; height: 60px; margin: 0 auto 18px; border-radius: 18px; display: flex; align-items: center; justify-content: center; ' +
-      '  background: linear-gradient(135deg,#5B6CFF,#FB7299); box-shadow: 0 10px 28px rgba(91,108,255,.35); }' +
-      '.title { font-size: 20px; font-weight: 700; color: var(--bk-fg-text); margin-bottom: 10px; }' +
-      '.text { font-size: 13px; color: var(--bk-fg-sub); line-height: 1.8; margin-bottom: 26px; }' +
-      '.actions { display: flex; gap: 10px; }' +
-      '.btn { flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; ' +
-      '  transition: transform .15s, box-shadow .15s; }' +
-      '.btn:hover { transform: translateY(-1px); }' +
-      '.btn-home { background: linear-gradient(135deg,#5B6CFF,#7C8AFF); color: #fff; box-shadow: 0 8px 22px rgba(91,108,255,.32); }' +
-      '.btn-5min { background: var(--bk-fg-soft); color: var(--bk-fg-text); }' +
-      '.close { position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border: none; border-radius: 8px; ' +
-      '  background: transparent; color: var(--bk-fg-sub); font-size: 18px; line-height: 1; cursor: pointer; }' +
-      '.close:hover { background: var(--bk-fg-soft); }' +
+      '  padding: 24px; background: var(--bk-fg-mask); backdrop-filter: blur(2px); }' +
+      '.card { position: relative; width: min(400px, 100%); background: var(--bk-fg-card); border: 1px solid var(--bk-fg-line); ' +
+      '  border-radius: 8px; padding: 32px 28px 28px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.25); ' +
+      '  font-family: var(--bk-fg-sans); animation: bk-fg-in .25s ease-out; }' +
+      '@keyframes bk-fg-in { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
+      '.icon { width: 48px; height: 48px; margin: 0 auto 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; ' +
+      '  background: var(--bk-fg-pink-soft); color: var(--bk-fg-pink); }' +
+      '.title { font-size: 17px; font-weight: 600; color: var(--bk-fg-text); margin-bottom: 8px; }' +
+      '.text { font-size: 13px; color: var(--bk-fg-sub); line-height: 1.8; margin-bottom: 22px; }' +
+      '.actions { display: flex; gap: 8px; }' +
+      '.btn { flex: 1; height: 36px; border-radius: 6px; border: none; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; ' +
+      '  transition: background .15s; }' +
+      '.btn-home { background: var(--bk-fg-pink); color: #FFFFFF; }' +
+      '.btn-home:hover { background: var(--bk-fg-pink-hover); }' +
+      '.btn-5min { background: var(--bk-fg-sub-bg); color: var(--bk-fg-text); }' +
+      '.btn-5min:hover { background: var(--bk-fg-line); }' +
+      '.close { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; border: none; border-radius: 6px; ' +
+      '  background: transparent; color: var(--bk-fg-faint); font-family: inherit; font-size: 16px; line-height: 1; cursor: pointer; ' +
+      '  transition: background .15s, color .15s; }' +
+      '.close:hover { background: var(--bk-fg-sub-bg); color: var(--bk-fg-text); }' +
       '</style>' +
       '<div class="mask">' +
       '  <div class="card">' +
       '    <button class="close" type="button" aria-label="关闭">×</button>' +
       '    <div class="icon">' +
-      '      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" stroke="#fff" stroke-width="2"/>' +
-      '        <path d="M12 8v4M12 15h.01" stroke="#fff" stroke-width="2" stroke-linecap="round"/>' +
+      '      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" stroke="currentColor" stroke-width="2"/>' +
+      '        <path d="M12 8v4M12 15h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
       '      </svg>' +
       '    </div>' +
       '    <p class="title">今日观看已达上限</p>' +
-      '    <p class="text">你已经看了 ' + minutes + ' 分钟，超过了设定的 ' + limitMin + ' 分钟目标。<br>眼睛和身体都需要休息，视频已为你暂停。</p>' +
+      '    <p class="text">今日已看 ' + minutes + ' 分钟，超过设定的 ' + limitMin + ' 分钟。视频已暂停。</p>' +
       '    <div class="actions">' +
-      '      <button class="btn btn-home" type="button">去首页休息</button>' +
-      '      <button class="btn btn-5min" type="button">再坚持 5 分钟</button>' +
+      '      <button class="btn btn-home" type="button">回首页</button>' +
+      '      <button class="btn btn-5min" type="button">再看 5 分钟</button>' +
       '    </div>' +
       '  </div>' +
       '</div>';
@@ -151,7 +152,7 @@
     const seconds = resp.today.seconds || 0;
     if (seconds < limitMin * 60) return; // 未达上限
     const now = Math.floor(Date.now() / 1000);
-    if (now < (await snoozeUntil())) return; // 用户刚「再坚持 5 分钟」
+    if (now < (await snoozeUntil())) return; // 用户刚选过「再看 5 分钟」
     if (!isVideoPage()) {
       dismiss(); // 离开视频页立即撤下门闩，避免遮挡首页/搜索等其他页面
       return;
