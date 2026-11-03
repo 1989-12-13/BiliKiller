@@ -73,7 +73,7 @@
 
 | 接口 | 获取信息 |
 | --- | --- |
-| `GET /x/web-interface/nav` ✅🔒 | 当前登录态 `isLogin`、昵称 `uname`、头像、硬币、大会员（VipStatus）、通知未读数 `unread` |
+| `GET /x/web-interface/nav` 🔒 | 当前登录态 `isLogin`、昵称 `uname`、头像、硬币、大会员（VipStatus）、通知未读数 `unread` |
 | `GET /x/web-interface/card?mid={mid}` | 任意用户基本信息：昵称、签名、等级、粉丝数、关注数、大会员状态 |
 | `GET /x/space/wbi/arc/search?mid={mid}` 🗝️ | 某用户投稿视频列表（标题、播放量、时长），含分页 |
 | `GET /x/relation/followings?vmid={mid}` | 某用户关注列表 / 本人粉丝列表 |
@@ -94,7 +94,9 @@
 | --- | --- |
 | `GET /x/web-interface/history/cursor?type=archive&ps=30&max=&view_at=` ✅🔒 | **观看历史**：每条含视频标题、UP 主、分区 `tag_name`、观看时刻 `view_at`（秒）、真实观看进度 `progress`（秒）；`type` 可选 `archive`（视频）/`live`（直播）/`article`（专栏）；无限滚动：下次翻页用返回的 `cursor.max` / `cursor.view_at` |
 | `GET /x/v2/history/toview` ✅🔒 | **稍后再看列表**：aid/bvid、封面、标题、UP 主、时长、预约时间 |
-| `POST /x/v2/history/to_delete` 等写接口 🔒 | 删除 / 清空观看历史、管理稍后再看，需 `bili_jct` CSRF |
+| `POST /x/v2/history/delete` 🔒 | **删除单条观看历史**：`kid` 形如 `archive_{avid}` / `pgc_{ssid}` / `live_{roomid}` / `article_{cvid}`，另需 `csrf`（cookie `bili_jct`）；BiliKiller 未使用，首页的移除只写本地记录 |
+| `POST /x/v2/history/toview/add` ✅🔒 | **加入稍后再看**：`bvid` 或 `aid` + `csrf`；列表满 100 个返回 90001，稿件失效返回 90003 |
+| `POST /x/v2/history/toview/del` ✅🔒 | **移出稍后再看**：`aid` + `csrf`；`viewed=true` 可一次删除所有已看完的条目 |
 
 #### 搜索 / 热门 / 排行榜（无需登录即可读，项目刻意不展示）
 
@@ -153,8 +155,9 @@
 
 | 项目功能 | 使用的 API | 获取的数据 |
 | --- | --- | --- |
-| 首页问候语 | `/x/web-interface/nav` | 登录 + 真实昵称（缓存 10 分钟） |
 | 首页「稍后再看」区块 | `/x/v2/history/toview` | 封面/标题/UP 主/时长（前 8 条） |
+| 首页「继续观看」区块 | `/x/web-interface/history/cursor?type=archive` | 标题/UP 主/封面/时长/观看进度 `progress`（前 8 条） |
+| 卡片上的 × / + | `/x/v2/history/toview/del`、`/x/v2/history/toview/add` | 移出 / 加入稍后再看（都带 `csrf`，取自 cookie `bili_jct`）；继续观看的 × 只写本地 storage（`bk-hidden-history`），不调用历史删除接口 |
 
 **未来可扩展方向**（仅供参考，需遵守净化理念——「仅主动观看、不展示诱导」）：
 
@@ -165,7 +168,7 @@
 
 1. **前端内部接口非官方公开**：无 SLA、随时变更、可能被单方面加签名/风控；B 站 2026-01 已对整理此类文档的社区仓库发律师函要求删库；
 2. **仅限本人数据**：BiliKiller 只在用户自己的浏览器里读自己的 Cookie 数据，属于个人用途；请勿批量抓取他人数据或商用；
-3. **频率控制**：扩展已在 API 层缓存（导航 10 分钟）并避免高频轮询刷接口；扩展新功能应延续该策略；
+3. **频率控制**：首页两个区块只在面板挂载时各请求一次，不做轮询；看板数字走本地 `chrome.storage`，不额外打接口；
 4. 代码更新到云端仓库时，不要提交任何 Cookie / token / 密钥。
 
 ## 参考资源
